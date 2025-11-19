@@ -21,7 +21,7 @@ OPENAI_MODEL = "gpt-3.5-turbo"
 # Page configuration
 st.set_page_config(
     page_title="Integrated Sponsor Center",
-    page_icon="🎯",
+    page_icon="💵",
     layout="wide",
     initial_sidebar_state="expanded"
 )
