@@ -20,8 +20,8 @@ OPENAI_MODEL = "gpt-3.5-turbo"
 
 # Page configuration
 st.set_page_config(
-    page_title="Indian Scam Center",
-    page_icon="🔍",
+    page_title="Integrated Sponsor Center",
+    page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -193,7 +193,7 @@ if 'openai_client' not in st.session_state:
         st.session_state.openai_enabled = False
 
 # Sidebar Navigation
-st.sidebar.markdown("# Indian Scam Center")
+st.sidebar.markdown("# Integrated Sponsor Center")
 st.sidebar.markdown("### Sponsorship & Search Platform")
 st.sidebar.markdown("---")
 
@@ -203,21 +203,21 @@ if st.session_state.page_switch:
     st.session_state.page_switch = None
 else:
     page = st.sidebar.radio(
-        "📍 Navigation",
+        "Navigation",
         ["Dashboard", "Email Search", "Cash Sponsors (AI)", 
          "Vendor Search", "Email Templates", "Company Database", "Export Tools"],
         label_visibility="collapsed"
     )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📊 Status")
+st.sidebar.markdown("### Status")
 if st.session_state.openai_enabled:
-    st.sidebar.success("✓ AI Assistant: Connected")
+    st.sidebar.success("AI Assistant: Connected")
 else:
-    st.sidebar.error("✗ AI Assistant: Not Configured")
+    st.sidebar.error("AI Assistant: Not Configured")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📈 Statistics")
+st.sidebar.markdown("### Statistics")
 st.sidebar.metric("Companies Found", len(st.session_state.found_companies))
 st.sidebar.metric("Vendors Found", len(st.session_state.recommended_vendors))
 
@@ -259,17 +259,17 @@ if page == "Dashboard":
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🔍 Start Email Search", use_container_width=True, key="dash_email"):
+        if st.button("Start Email Search", use_container_width=True, key="dash_email"):
             st.session_state.page_switch = "Email Search"
             st.rerun()
-        if st.button("📊 View Database", use_container_width=True, key="dash_db"):
+        if st.button("View Database", use_container_width=True, key="dash_db"):
             st.session_state.page_switch = "Company Database"
             st.rerun()
     with col2:
-        if st.button("🤖 Find Vendors", use_container_width=True, key="dash_vendors"):
+        if st.button("Find Vendors", use_container_width=True, key="dash_vendors"):
             st.session_state.page_switch = "Vendor Search"
             st.rerun()
-        if st.button("📤 Export Data", use_container_width=True, key="dash_export"):
+        if st.button("Export Data", use_container_width=True, key="dash_export"):
             st.session_state.page_switch = "Export Tools"
             st.rerun()
 
@@ -278,10 +278,10 @@ elif page == "Email Search":
     
     # Input section in a frame
     with st.container():
-        st.markdown("### 🌐 Website URL")
+        st.markdown("### Website URL")
         url = st.text_input("Enter website URL", placeholder="https://example.com", label_visibility="collapsed")
         
-        st.markdown("### ⚙️ Search Settings")
+        st.markdown("### Search Settings")
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown("**Max Pages**")
@@ -299,9 +299,9 @@ elif page == "Email Search":
     # Control buttons
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
-        search_btn = st.button("🔍 Start Search", type="primary", use_container_width=True)
+        search_btn = st.button("Start Search", type="primary", use_container_width=True)
     with col2:
-        clear_btn = st.button("🗑️ Clear Results", use_container_width=True)
+        clear_btn = st.button("Clear Results", use_container_width=True)
     with col3:
         pass
     
@@ -326,7 +326,7 @@ elif page == "Email Search":
                     emails = searcher.search_website_for_emails(url)
                     
                     if emails:
-                        st.success(f"✅ Found {len(emails)} email addresses!")
+                        st.success(f"Found {len(emails)} email addresses!")
                         
                         # Store in session state
                         st.session_state.search_results = emails
@@ -335,7 +335,7 @@ elif page == "Email Search":
                                 st.session_state.found_companies.append(email)
                         
                         # Display results in text area
-                        st.markdown("### 📬 Search Results")
+                        st.markdown("### Search Results")
                         result_text = f"EMAIL SEARCH RESULTS - {url}\n{'=' * 60}\n\n"
                         result_text += f"Found {len(emails)} email addresses:\n\n"
                         for i, email in enumerate(sorted(emails), 1):
@@ -348,14 +348,14 @@ elif page == "Email Search":
                         # Download button
                         csv_data = "\n".join(sorted(emails))
                         st.download_button(
-                            label="💾 Download Emails as CSV",
+                            label="Download Emails as CSV",
                             data=csv_data,
                             file_name=f"emails_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                             mime="text/csv",
                             use_container_width=True
                         )
                     else:
-                        st.warning("⚠️ No emails found on this website")
+                        st.warning("No emails found on this website")
                         st.info("""
 **Possible reasons:**
 • Website blocking automated requests
@@ -365,11 +365,11 @@ elif page == "Email Search":
                         """)
                         
                 except Exception as e:
-                    st.error(f"❌ Search failed: {str(e)}")
+                    st.error(f"Search failed: {str(e)}")
     
     # Display previous results if they exist
     elif 'search_results' in st.session_state:
-        st.markdown("### 📬 Previous Search Results")
+        st.markdown("### Previous Search Results")
         emails = st.session_state.search_results
         result_text = f"Found {len(emails)} email addresses:\n\n"
         for i, email in enumerate(sorted(emails), 1):
@@ -380,7 +380,7 @@ elif page == "Cash Sponsors (AI)":
     st.markdown('<p class="main-header">AI Cash Sponsor Finder</p>', unsafe_allow_html=True)
     
     if not st.session_state.openai_enabled:
-        st.error("⚠️ OpenAI API key not configured. Please update the API key in the code.")
+        st.error("OpenAI API key not configured. Please add it in Streamlit Cloud Secrets.")
     else:
         # Input section
         project = st.text_area("What project or event needs sponsorship?", 
@@ -394,11 +394,11 @@ elif page == "Cash Sponsors (AI)":
             canadian_only = st.checkbox("Canadian companies only", value=True)
             include_contact = st.checkbox("Include contact information", value=True)
         
-        if st.button("🔍 Find Cash Sponsors", type="primary", use_container_width=True):
+        if st.button("Find Cash Sponsors", type="primary", use_container_width=True):
             if not project:
                 st.error("Please describe your project or event")
             else:
-                with st.spinner("🤖 AI is searching for cash sponsors..."):
+                with st.spinner("AI is searching for cash sponsors..."):
                     try:
                         location_filter = "Canadian" if canadian_only else "North American"
                         industry_context = f" in the {industry} industry" if industry else ""
@@ -431,8 +431,8 @@ Please provide at least 8-15 relevant potential sponsors with detailed informati
                         
                         ai_response = response.choices[0].message.content
                         
-                        st.success("✅ AI Search Complete!")
-                        st.markdown("### 🎯 Recommended Cash Sponsors:")
+                        st.success("AI Search Complete!")
+                        st.markdown("### Recommended Cash Sponsors:")
                         st.markdown(ai_response)
                         
                         # Store in session state
@@ -444,9 +444,9 @@ Please provide at least 8-15 relevant potential sponsors with detailed informati
                         })
                         
                     except Exception as e:
-                        st.error(f"❌ AI search failed: {str(e)}")
+                        st.error(f"AI search failed: {str(e)}")
                         if "quota" in str(e).lower() or "billing" in str(e).lower():
-                            st.warning("💡 Tip: Add credits to your OpenAI account at https://platform.openai.com/account/billing")
+                            st.warning("Tip: Add credits to your OpenAI account at https://platform.openai.com/account/billing")
 
 elif page == "Vendor Search":
     st.markdown('<p class="main-header">Specific Vendor & Parts Search</p>', unsafe_allow_html=True)
@@ -463,21 +463,21 @@ elif page == "Vendor Search":
     
     find_contact = st.checkbox("Find supplier contact info", value=True)
     
-    if st.button("🔍 Search Vendors", type="primary", use_container_width=True):
+    if st.button("Search Vendors", type="primary", use_container_width=True):
         if not part_name:
             st.error("Please enter a specific part or product name")
         else:
             with st.spinner(f"Searching for '{part_name}' vendors..."):
                 # Provide search strategy and recommendations
-                st.success("✅ Search Strategy Generated!")
+                st.success("Search Strategy Generated!")
                 
                 st.markdown(f"""
-### 🎯 VENDOR SEARCH RESULTS
+### VENDOR SEARCH RESULTS
 **Part/Product:** {part_name}  
 **Region:** {country}  
 **Price Range:** {price_range}
 
-#### 🔍 SEARCH STRATEGY:
+#### SEARCH STRATEGY:
 Using multiple search approaches:
 - Direct supplier searches
 - Distributor networks
@@ -485,7 +485,7 @@ Using multiple search approaches:
 - E-commerce platforms
 - Industry directories
 
-#### 📋 RECOMMENDED VENDORS:
+#### RECOMMENDED VENDORS:
 
 **1. DIRECT MANUFACTURERS:**
 - Search for "{part_name} manufacturer {country}"
@@ -508,7 +508,7 @@ Using multiple search approaches:
 - Professional association member directories
 - Industry publication supplier guides
 
-#### 💡 NEXT STEPS:
+#### NEXT STEPS:
 1. Use the Email Search tab to find contacts at these companies
 2. Cross-reference with your specific requirements
 3. Request quotes from multiple vendors
@@ -609,14 +609,14 @@ Best regards,
     body = body.replace("[DATE]", datetime.now().strftime("%B %d, %Y"))
     
     # Display template
-    st.markdown("### 📧 Email Preview:")
+    st.markdown("### Email Preview:")
     st.text_input("Subject:", value=subject, key="subject_preview")
     st.text_area("Body:", value=body, height=400, key="body_preview")
     
     # Copy button
     full_email = f"Subject: {subject}\n\n{body}"
     st.download_button(
-        label="💾 Download Email",
+        label="Download Email",
         data=full_email,
         file_name=f"email_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
         mime="text/plain"
@@ -627,10 +627,10 @@ elif page == "Company Database":
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("🔄 Refresh Database", use_container_width=True):
+        if st.button("Refresh Database", use_container_width=True):
             st.rerun()
     with col2:
-        if st.button("🗑️ Clear Database", use_container_width=True):
+        if st.button("Clear Database", use_container_width=True):
             st.session_state.found_companies.clear()
             st.session_state.recommended_vendors.clear()
             st.success("Database cleared!")
@@ -640,7 +640,7 @@ elif page == "Company Database":
     
     # Display companies
     if st.session_state.found_companies:
-        st.markdown(f"### 📧 Email Search Results ({len(st.session_state.found_companies)} entries)")
+        st.markdown(f"### Email Search Results ({len(st.session_state.found_companies)} entries)")
         for i, email in enumerate(st.session_state.found_companies, 1):
             st.code(f"{i}. {email}")
     else:
@@ -650,7 +650,7 @@ elif page == "Company Database":
     
     # Display vendors
     if st.session_state.recommended_vendors:
-        st.markdown(f"### 🛒 Recommended Vendors ({len(st.session_state.recommended_vendors)} entries)")
+        st.markdown(f"### Recommended Vendors ({len(st.session_state.recommended_vendors)} entries)")
         for i, vendor in enumerate(st.session_state.recommended_vendors, 1):
             with st.expander(f"Entry {i} - {vendor.get('type', 'Unknown')} - {vendor.get('timestamp', 'N/A')}"):
                 st.markdown(vendor.get('results', 'No details available'))
@@ -663,7 +663,7 @@ elif page == "Export Tools":
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 📧 Email Search Data")
+        st.markdown("### Email Search Data")
         if st.session_state.found_companies:
             # CSV export
             csv_buffer = io.StringIO()
@@ -673,7 +673,7 @@ elif page == "Export Tools":
                 csv_writer.writerow([email])
             
             st.download_button(
-                label="💾 Export Emails to CSV",
+                label="Export Emails to CSV",
                 data=csv_buffer.getvalue(),
                 file_name=f"emails_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv"
@@ -682,7 +682,7 @@ elif page == "Export Tools":
             # JSON export
             json_data = json.dumps(st.session_state.found_companies, indent=2)
             st.download_button(
-                label="💾 Export Emails to JSON",
+                label="Export Emails to JSON",
                 data=json_data,
                 file_name=f"emails_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                 mime="application/json"
@@ -691,12 +691,12 @@ elif page == "Export Tools":
             st.info("No email data to export")
     
     with col2:
-        st.markdown("### 🛒 Vendor Recommendations")
+        st.markdown("### Vendor Recommendations")
         if st.session_state.recommended_vendors:
             # JSON export
             json_data = json.dumps(st.session_state.recommended_vendors, indent=2)
             st.download_button(
-                label="💾 Export Vendors to JSON",
+                label="Export Vendors to JSON",
                 data=json_data,
                 file_name=f"vendors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                 mime="application/json"
@@ -705,7 +705,7 @@ elif page == "Export Tools":
             st.info("No vendor data to export")
     
     st.markdown("---")
-    st.markdown("### 📊 Complete Database Export")
+    st.markdown("### Complete Database Export")
     
     if st.session_state.found_companies or st.session_state.recommended_vendors:
         complete_data = {
@@ -720,7 +720,7 @@ elif page == "Export Tools":
         
         json_data = json.dumps(complete_data, indent=2)
         st.download_button(
-            label="💾 Export Complete Database",
+            label="Export Complete Database",
             data=json_data,
             file_name=f"complete_database_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json",
@@ -733,6 +733,6 @@ elif page == "Export Tools":
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; padding: 1rem;">
-    <p>Indian Scam Center - Web Version | Built with Streamlit</p>
+    <p>Integrated Sponsor Center - Web Version | Built with Streamlit</p>
 </div>
 """, unsafe_allow_html=True)
