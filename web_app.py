@@ -461,20 +461,32 @@ elif page == "Real Sponsors":
                             from bs4 import BeautifulSoup
                             soup = BeautifulSoup(search_content, 'html.parser')
                             
-                            # Extract URLs from DuckDuckGo results
+                            # Extract URLs from DuckDuckGo results with better filtering
                             for result in soup.find_all('a', class_='result__url'):
                                 url = result.get('href', '')
                                 if url.startswith('http'):
-                                    # Clean the URL
-                                    clean_url = url.split('?')[0]
-                                    if 'duckduckgo' not in clean_url and 'google' not in clean_url:
-                                        all_company_urls.add(clean_url)
+                                    # Clean the URL - keep only base domain
+                                    clean_url = url.split('?')[0].split('#')[0]
+                                    domain = clean_url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+                                    
+                                    # Filter out search engines and irrelevant sites
+                                    skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
+                                                   'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon']
+                                    if not any(skip in domain.lower() for skip in skip_domains):
+                                        # Add base URL only (homepage)
+                                        base_url = f"https://{domain}"
+                                        all_company_urls.add(base_url)
                             
-                            # Also try finding links in result snippets
+                            # Also try result links (backup method)
                             for link in soup.find_all('a', href=True):
                                 href = link['href']
-                                if href.startswith('http') and 'duckduckgo' not in href:
-                                    all_company_urls.add(href.split('?')[0])
+                                if href.startswith('http'):
+                                    domain = href.replace('https://', '').replace('http://', '').replace('www.', '').split('?')[0].split('/')[0]
+                                    skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter',
+                                                   'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon']
+                                    if not any(skip in domain.lower() for skip in skip_domains):
+                                        base_url = f"https://{domain}"
+                                        all_company_urls.add(base_url)
                     
                     # If no results, try manual company list approach
                     if not all_company_urls:
@@ -507,8 +519,20 @@ elif page == "Real Sponsors":
                                 except:
                                     pass
                     
-                    # Remove duplicates and limit
-                    company_urls = list(all_company_urls)[:8]
+                    # Remove duplicates, clean URLs, and limit
+                    # Deduplicate by domain to avoid showing same site multiple times
+                    seen_domains = set()
+                    unique_company_urls = []
+                    
+                    for url in all_company_urls:
+                        # Extract domain for deduplication
+                        domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+                        
+                        if domain not in seen_domains:
+                            seen_domains.add(domain)
+                            unique_company_urls.append(url)
+                    
+                    company_urls = unique_company_urls[:8]
                     
                     if not company_urls:
                         st.error("No company websites found. Try:")
@@ -534,13 +558,26 @@ elif page == "Real Sponsors":
                             company_data = {
                                 'url': url,
                                 'name': url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0],
-                                'emails': []
+                                'emails': [],
+                                'relevance_score': 0
                             }
+                            
+                            # Calculate relevance score based on URL content
+                            url_lower = url.lower()
+                            if industry:
+                                industry_words = industry.lower().split()
+                                company_data['relevance_score'] += sum(1 for word in industry_words if word in url_lower) * 2
+                            
+                            project_words = project.lower().split()[:3]
+                            company_data['relevance_score'] += sum(1 for word in project_words if word in url_lower)
                             
                             if include_contact:
                                 try:
                                     emails = searcher.search_website_for_emails(url)
-                                    company_data['emails'] = list(emails) if emails else []
+                                    if emails:
+                                        company_data['emails'] = list(emails)
+                                        # Boost score for companies with contact info
+                                        company_data['relevance_score'] += 5
                                 except:
                                     pass
                             
@@ -548,6 +585,9 @@ elif page == "Real Sponsors":
                         
                         progress_bar.empty()
                         status_text.empty()
+                        
+                        # Sort by relevance score (highest first)
+                        company_results.sort(key=lambda x: x['relevance_score'], reverse=True)
                         
                         # Store results in session state so buttons work
                         st.session_state.last_sponsor_search = company_results
@@ -749,19 +789,32 @@ elif page == "Vendor Search":
                             from bs4 import BeautifulSoup
                             soup = BeautifulSoup(search_content, 'html.parser')
                             
-                            # Extract URLs from DuckDuckGo results
+                            # Extract URLs from DuckDuckGo results with better filtering
                             for result in soup.find_all('a', class_='result__url'):
                                 url = result.get('href', '')
                                 if url.startswith('http'):
-                                    clean_url = url.split('?')[0]
-                                    if 'duckduckgo' not in clean_url and 'google' not in clean_url:
-                                        all_vendor_urls.add(clean_url)
+                                    # Clean the URL - keep only base domain
+                                    clean_url = url.split('?')[0].split('#')[0]
+                                    domain = clean_url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+                                    
+                                    # Filter out search engines and irrelevant sites
+                                    skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
+                                                   'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'ebay']
+                                    if not any(skip in domain.lower() for skip in skip_domains):
+                                        # Add base URL only
+                                        base_url = f"https://{domain}"
+                                        all_vendor_urls.add(base_url)
                             
-                            # Also try finding links in result snippets
+                            # Backup method for result links
                             for link in soup.find_all('a', href=True):
                                 href = link['href']
-                                if href.startswith('http') and 'duckduckgo' not in href:
-                                    all_vendor_urls.add(href.split('?')[0])
+                                if href.startswith('http'):
+                                    domain = href.replace('https://', '').replace('http://', '').replace('www.', '').split('?')[0].split('/')[0]
+                                    skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter',
+                                                   'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'ebay']
+                                    if not any(skip in domain.lower() for skip in skip_domains):
+                                        base_url = f"https://{domain}"
+                                        all_vendor_urls.add(base_url)
                     
                     # If no results, try alternative approach
                     if not all_vendor_urls:
@@ -792,28 +845,86 @@ elif page == "Vendor Search":
                     
                     # Add well-known distributors based on category
                     common_distributors = {
-                        "electronics": ["https://www.digikey.com", "https://www.mouser.com", "https://www.newark.com"],
-                        "industrial": ["https://www.mcmaster.com", "https://www.grainger.com", "https://www.fastenal.com"],
-                        "aerospace": ["https://www.aviall.com", "https://www.wencor.com"],
-                        "robotics": ["https://www.robotshop.com", "https://www.pololu.com"],
-                        "3d printing": ["https://www.matterhackers.com", "https://www.prusa3d.com"]
+                        "electronics": [
+                            "https://www.digikey.com", "https://www.mouser.com", "https://www.newark.com",
+                            "https://www.digikey.ca", "https://www.adafruit.com", "https://www.sparkfun.com"
+                        ],
+                        "industrial": [
+                            "https://www.mcmaster.com", "https://www.grainger.com", "https://www.fastenal.com",
+                            "https://www.mscdirect.com", "https://www.zoro.com"
+                        ],
+                        "aerospace": [
+                            "https://www.aviall.com", "https://www.wencor.com", "https://www.flyingcolours.com"
+                        ],
+                        "robotics": [
+                            "https://www.robotshop.com", "https://www.pololu.com", "https://www.servocity.com",
+                            "https://www.trossenrobotics.com"
+                        ],
+                        "3d printing": [
+                            "https://www.matterhackers.com", "https://www.prusa3d.com", "https://www.ultimaker.com",
+                            "https://www.filaments.ca"
+                        ],
+                        "rocketry": [
+                            "https://www.apogeerockets.com", "https://www.estesrockets.com", "https://www.madcowrocketry.com",
+                            "https://www.wildmanrocketry.com"
+                        ],
+                        "composites": [
+                            "https://www.cstsales.com", "https://www.fibreglast.com", "https://www.carbonfibergear.com"
+                        ]
                     }
                     
-                    # Check if part matches any category
+                    # Smart category matching
                     part_lower = part_name.lower()
-                    if any(word in part_lower for word in ["arduino", "sensor", "chip", "electronic", "circuit"]):
-                        all_vendor_urls.update(common_distributors["electronics"][:2])
-                    elif any(word in part_lower for word in ["bolt", "screw", "tool", "industrial"]):
-                        all_vendor_urls.update(common_distributors["industrial"][:2])
-                    elif any(word in part_lower for word in ["aviation", "aerospace", "flight"]):
-                        all_vendor_urls.update(common_distributors["aerospace"][:2])
-                    elif any(word in part_lower for word in ["robot", "servo", "motor"]):
-                        all_vendor_urls.update(common_distributors["robotics"][:2])
-                    elif any(word in part_lower for word in ["3d", "filament", "printer", "pla", "abs"]):
-                        all_vendor_urls.update(common_distributors["3d printing"][:2])
+                    matched_categories = []
                     
-                    # Remove duplicates and limit
-                    vendor_urls = list(all_vendor_urls)[:10]
+                    # Electronics keywords
+                    if any(word in part_lower for word in ["arduino", "sensor", "raspberry", "chip", "electronic", "circuit", 
+                                                            "pcb", "microcontroller", "transistor", "resistor", "capacitor"]):
+                        matched_categories.append("electronics")
+                    
+                    # Industrial/hardware keywords
+                    if any(word in part_lower for word in ["bolt", "screw", "nut", "tool", "industrial", "fastener",
+                                                            "bearing", "spring", "gear", "shaft"]):
+                        matched_categories.append("industrial")
+                    
+                    # Aerospace keywords
+                    if any(word in part_lower for word in ["aviation", "aerospace", "flight", "aircraft", "avionics"]):
+                        matched_categories.append("aerospace")
+                    
+                    # Robotics keywords
+                    if any(word in part_lower for word in ["robot", "servo", "motor", "stepper", "actuator", "gripper"]):
+                        matched_categories.append("robotics")
+                    
+                    # 3D printing keywords
+                    if any(word in part_lower for word in ["3d", "filament", "printer", "pla", "abs", "petg", "nozzle", "hotend"]):
+                        matched_categories.append("3d printing")
+                    
+                    # Rocketry keywords
+                    if any(word in part_lower for word in ["rocket", "motor", "propulsion", "recovery", "parachute", "ejection"]):
+                        matched_categories.append("rocketry")
+                    
+                    # Composites keywords
+                    if any(word in part_lower for word in ["carbon fiber", "fiberglass", "composite", "epoxy", "resin", "laminate"]):
+                        matched_categories.append("composites")
+                    
+                    # Add distributors from matched categories
+                    for category in matched_categories:
+                        if category in common_distributors:
+                            all_vendor_urls.update(common_distributors[category][:3])  # Top 3 per category
+                    
+                    # Remove duplicates by domain and limit
+                    seen_domains = set()
+                    unique_vendor_urls = []
+                    
+                    for url in all_vendor_urls:
+                        # Extract domain for deduplication
+                        domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+                        
+                        if domain not in seen_domains:
+                            seen_domains.add(domain)
+                            unique_vendor_urls.append(url)
+                    
+                    vendor_urls = unique_vendor_urls[:10]
                     
                     if not vendor_urls:
                         st.error("No vendor websites found. Try:")
@@ -839,13 +950,26 @@ elif page == "Vendor Search":
                             vendor_data = {
                                 'url': url,
                                 'name': url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0],
-                                'emails': []
+                                'emails': [],
+                                'relevance_score': 0
                             }
+                            
+                            # Calculate relevance score
+                            url_lower = url.lower()
+                            part_words = part_name.lower().split()[:3]
+                            vendor_data['relevance_score'] += sum(1 for word in part_words if word in url_lower)
+                            
+                            # Boost common distributors
+                            if any(dist in url_lower for dist in ['supply', 'distributor', 'direct', 'shop']):
+                                vendor_data['relevance_score'] += 2
                             
                             if find_contact:
                                 try:
                                     emails = searcher.search_website_for_emails(url)
-                                    vendor_data['emails'] = list(emails) if emails else []
+                                    if emails:
+                                        vendor_data['emails'] = list(emails)
+                                        # Boost score for vendors with contact info
+                                        vendor_data['relevance_score'] += 5
                                 except:
                                     pass
                             
@@ -853,6 +977,9 @@ elif page == "Vendor Search":
                         
                         progress_bar.empty()
                         status_text.empty()
+                        
+                        # Sort by relevance score (highest first)
+                        vendor_results.sort(key=lambda x: x['relevance_score'], reverse=True)
                         
                         # Store results in session state so buttons work
                         st.session_state.last_vendor_search = vendor_results
