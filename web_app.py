@@ -26,161 +26,228 @@ SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "")
 
 # Page configuration
 st.set_page_config(
-    page_title="Integrated Sponsor Center",
-    page_icon="$",
+    page_title="UBCO Aerospace - Sponsor Center",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS - Matches desktop dark theme
+# Modern CSS with UBCO branding
 st.markdown("""
 <style>
-    /* Main container styling */
-    .stApp {
-        background-color: #1a1a1a;
+    /* Import modern font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    /* Global styling */
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
     
-    /* Sidebar styling to match desktop */
+    /* Main container */
+    .stApp {
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1d3a 100%);
+    }
+    
+    /* Sidebar styling */
     [data-testid="stSidebar"] {
-        background-color: #2b2b2b;
+        background: linear-gradient(180deg, #141824 0%, #1e2235 100%);
+        border-right: 1px solid rgba(59, 142, 208, 0.2);
     }
     
     [data-testid="stSidebar"] .stMarkdown {
-        color: #e0e0e0;
+        color: #e8eaed;
     }
     
-    /* Main header styling */
+    /* Main header with logo */
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #3b8ed0;
+        font-size: 3.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #3b8ed0 0%, #5ba3e0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
     }
     
-    /* Stat boxes matching desktop cards */
-    .stat-box {
-        background-color: #2b2b2b;
-        padding: 1.5rem;
-        border-radius: 10px;
+    .sub-header {
+        font-size: 1.3rem;
+        color: #9ca3af;
         text-align: center;
-        border: 1px solid #404040;
-    }
-    
-    .stat-number {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #3b8ed0;
-    }
-    
-    .stat-label {
-        font-size: 1rem;
-        color: #b0b0b0;
-        margin-top: 0.5rem;
-    }
-    
-    /* Button styling */
-    .stButton>button {
-        width: 100%;
-        background-color: #3b8ed0;
-        color: white;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
+        margin-bottom: 3rem;
         font-weight: 500;
-        border: none;
+    }
+    
+    /* Stat boxes with modern cards */
+    .stat-box {
+        background: linear-gradient(135deg, #1e2235 0%, #252a42 100%);
+        padding: 2rem;
+        border-radius: 16px;
+        text-align: center;
+        border: 1px solid rgba(59, 142, 208, 0.3);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         transition: all 0.3s ease;
     }
     
+    .stat-box:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(59, 142, 208, 0.3);
+    }
+    
+    .stat-number {
+        font-size: 3.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #3b8ed0 0%, #60b0ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        font-size: 1.1rem;
+        color: #9ca3af;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    /* Modern button styling */
+    .stButton>button {
+        width: 100%;
+        background: linear-gradient(135deg, #3b8ed0 0%, #2d7ab8 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 600;
+        font-size: 1.1rem;
+        border: none;
+        box-shadow: 0 4px 16px rgba(59, 142, 208, 0.4);
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
     .stButton>button:hover {
-        background-color: #2d6da8;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        background: linear-gradient(135deg, #2d7ab8 0%, #1f5c8c 100%);
+        box-shadow: 0 6px 24px rgba(59, 142, 208, 0.6);
+        transform: translateY(-2px);
     }
     
     /* Text input styling */
     .stTextInput>div>div>input,
-    .stTextArea>div>div>textarea {
-        background-color: #2b2b2b;
-        color: #e0e0e0;
-        border: 1px solid #404040;
-        border-radius: 8px;
-    }
-    
-    /* Results text boxes */
-    .stTextArea textarea {
-        font-family: 'Consolas', 'Monaco', monospace;
-        background-color: #1a1a1a;
-        color: #e0e0e0;
-    }
-    
-    /* Cards and frames */
-    div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
-        background-color: #2b2b2b;
-        padding: 1.5rem;
+    .stTextArea>div>div>textarea,
+    .stSelectbox>div>div>select {
+        background-color: #1e2235;
+        color: #e8eaed;
+        border: 2px solid rgba(59, 142, 208, 0.3);
         border-radius: 10px;
-        border: 1px solid #404040;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
     }
     
-    /* Section headers */
-    h3 {
-        color: #3b8ed0;
+    .stTextInput>div>div>input:focus,
+    .stTextArea>div>div>textarea:focus,
+    .stSelectbox>div>div>select:focus {
+        border-color: #3b8ed0;
+        box-shadow: 0 0 0 3px rgba(59, 142, 208, 0.2);
+    }
+    
+    /* Labels with better contrast */
+    label {
+        color: #e8eaed !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Info boxes */
+    .stAlert {
+        background-color: rgba(59, 142, 208, 0.1);
+        border-left: 4px solid #3b8ed0;
+        border-radius: 8px;
+        padding: 1rem;
+        font-size: 1rem;
+    }
+    
+    /* Success messages */
+    .stSuccess {
+        background-color: rgba(34, 197, 94, 0.1);
+        border-left: 4px solid #22c55e;
+        color: #86efac;
+    }
+    
+    /* Tables */
+    .stDataFrame {
+        font-size: 1rem;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: #1e2235;
+        border-radius: 10px;
+        font-size: 1.1rem;
         font-weight: 600;
     }
     
-    /* Slider styling */
-    .stSlider > div > div > div {
-        background-color: #3b8ed0;
-    }
-    
-    /* Success/Warning/Error boxes */
-    .success-box {
-        background-color: #1e3a1e;
-        border: 1px solid #2d5a2d;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-        color: #90ee90;
-    }
-    
-    .warning-box {
-        background-color: #3a3a1e;
-        border: 1px solid #5a5a2d;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-        color: #ffeb3b;
-    }
-    
-    .error-box {
-        background-color: #3a1e1e;
-        border: 1px solid #5a2d2d;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-        color: #ff6b6b;
-    }
-    
-    /* Code blocks */
-    code {
-        background-color: #1a1a1a;
+    /* Metric styling */
+    [data-testid="stMetricValue"] {
+        font-size: 2.5rem;
+        font-weight: 700;
         color: #3b8ed0;
-        padding: 0.2rem 0.4rem;
-        border-radius: 4px;
     }
     
-    /* Tabs styling */
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
-        background-color: #2b2b2b;
-        border-radius: 8px;
+        gap: 1rem;
     }
     
     .stTabs [data-baseweb="tab"] {
-        color: #b0b0b0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
     }
     
-    .stTabs [aria-selected="true"] {
-        color: #3b8ed0;
+    /* Page titles */
+    h1, h2, h3 {
+        color: #e8eaed !important;
+        font-weight: 700 !important;
+    }
+    
+    h1 {
+        font-size: 2.5rem !important;
+        margin-bottom: 1.5rem !important;
+    }
+    
+    h2 {
+        font-size: 2rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    h3 {
+        font-size: 1.5rem !important;
+    }
+    
+    /* Paragraphs */
+    p {
+        font-size: 1.1rem;
+        color: #d1d5db;
+        line-height: 1.6;
     }
 </style>
+""", unsafe_allow_html=True)
+
+# Main header with UBCO branding
+st.markdown("""
+<div style="text-align: center; margin-bottom: 2rem;">
+    <div style="display: inline-flex; align-items: center; gap: 1.5rem; justify-content: center; margin-bottom: 1rem;">
+        <div style="font-size: 5rem;">🚀</div>
+        <div>
+            <div class="main-header">UBCO AEROSPACE</div>
+            <div class="sub-header">Integrated Sponsor Center</div>
+        </div>
+    </div>
+</div>
 """, unsafe_allow_html=True)
 
 # Initialize database
@@ -235,6 +302,15 @@ if st.session_state.show_wolf:
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+# Sidebar with modern branding
+st.sidebar.markdown("""
+<div style="text-align: center; margin-bottom: 2rem; padding: 1rem;">
+    <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">🚀</div>
+    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.8rem; font-weight: 800;">UBCO Aerospace</h2>
+    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 1rem; font-weight: 500;">Sponsor Management</p>
+</div>
+""", unsafe_allow_html=True)
 
 # Handle page switching from dashboard
 if st.session_state.page_switch:
@@ -292,7 +368,7 @@ st.sidebar.metric("Drafted Emails", db_stats['drafted_emails'])
 
 # Main Content
 if page == "Dashboard":
-    st.markdown('<p class="main-header">Sponsors Dashboard</p>', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align: center; font-size: 3rem; margin-bottom: 2rem;">📊 Sponsor Dashboard</h1>', unsafe_allow_html=True)
     
     # Stats from database
     col1, col2, col3, col4 = st.columns(4)
