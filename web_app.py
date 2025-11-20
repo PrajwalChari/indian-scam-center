@@ -197,6 +197,25 @@ st.sidebar.markdown("# Integrated Sponsor Center")
 st.sidebar.markdown("### Sponsorship & Search Platform")
 st.sidebar.markdown("---")
 
+# Hidden easter egg in sidebar
+if 'show_wolf' not in st.session_state:
+    st.session_state.show_wolf = False
+
+if st.sidebar.button("💼", key="hidden_wolf_btn", help="Briefcase", use_container_width=False):
+    st.session_state.show_wolf = not st.session_state.show_wolf
+
+if st.session_state.show_wolf:
+    st.sidebar.markdown("""
+    <div style="text-align: center; margin-top: 1rem;">
+        <img src="https://media.giphy.com/media/n59dQcO9yaaaY/giphy.gif" 
+             style="max-width: 100%; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);"
+             alt="Wolf of Wall Street">
+        <p style="color: #3b8ed0; font-style: italic; margin-top: 0.5rem; font-size: 0.8rem;">
+            "The show goes on!"
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
 # Handle page switching from dashboard
 if st.session_state.page_switch:
     page = st.session_state.page_switch
@@ -223,7 +242,7 @@ st.sidebar.metric("Vendors Found", len(st.session_state.recommended_vendors))
 
 # Main Content
 if page == "Dashboard":
-    st.markdown('<p class="main-header">Scams Dashboard</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Sponsors Dashboard</p>', unsafe_allow_html=True)
     
     # Stats
     col1, col2, col3 = st.columns(3)
@@ -383,20 +402,20 @@ elif page == "Cash Sponsors (AI)":
         st.error("OpenAI API key not configured. Please add it in Streamlit Cloud Secrets.")
     else:
         # Input section
-        project = st.text_area("What project or event needs sponsorship?", 
-                              placeholder="e.g., Rocket competition, Tech startup, Community event")
+        project = st.text_area("What project or part needs sponsorship?", 
+                              placeholder="e.g., Flight Computer, Rocket Motors, 3D Printer Filament")
         
         col1, col2 = st.columns(2)
         with col1:
             industry = st.text_input("Industry/Category (optional)", 
-                                    placeholder="e.g., Aerospace, Technology, Education")
+                                    placeholder="e.g., Avionics, Propulsion, Recovery systems")
         with col2:
             canadian_only = st.checkbox("Canadian companies only", value=True)
             include_contact = st.checkbox("Include contact information", value=True)
         
         if st.button("Find Cash Sponsors", type="primary", use_container_width=True):
             if not project:
-                st.error("Please describe your project or event")
+                st.error("Please describe your project or part")
             else:
                 with st.spinner("AI is searching for cash sponsors..."):
                     try:
