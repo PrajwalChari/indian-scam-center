@@ -583,37 +583,29 @@ elif page == "Real Sponsors":
                                 
                                 found_in_iteration = 0
                                 
-                                # DuckDuckGo results - try multiple selectors
-                                # Try result__a (newer DuckDuckGo)
-                                for result in soup.find_all('a', class_='result__a'):
-                                    url = result.get('href', '')
+                                # DuckDuckGo Lite results - much simpler structure
+                                # Look for all links in result-link class
+                                for link in soup.find_all('a', class_='result-link'):
+                                    url = link.get('href', '')
                                     if url.startswith('http'):
                                         domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                         if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
                                             all_company_urls.add(f"https://{domain}")
                                             found_in_iteration += 1
                                 
-                                # Try result__url (older DuckDuckGo)
+                                # Alternative: look for span.link-text parent links
                                 if found_in_iteration == 0:
-                                    for result in soup.find_all('a', class_='result__url'):
-                                        url = result.get('href', '')
-                                        if url.startswith('http'):
-                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                                all_company_urls.add(f"https://{domain}")
-                                                found_in_iteration += 1
+                                    for span in soup.find_all('span', class_='link-text'):
+                                        parent_link = span.find_parent('a')
+                                        if parent_link:
+                                            url = parent_link.get('href', '')
+                                            if url.startswith('http'):
+                                                domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                                if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                    all_company_urls.add(f"https://{domain}")
+                                                    found_in_iteration += 1
                                 
-                                # Try links-menu links
-                                if found_in_iteration == 0:
-                                    for result in soup.find_all('a', class_='result-link'):
-                                        url = result.get('href', '')
-                                        if url.startswith('http'):
-                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                                all_company_urls.add(f"https://{domain}")
-                                                found_in_iteration += 1
-                                
-                                # Aggressive fallback - extract ALL links with good domains
+                                # Aggressive fallback
                                 for link in soup.find_all('a', href=True):
                                     href = link['href']
                                     if href.startswith('http'):
@@ -939,7 +931,7 @@ elif page == "Vendor Search":
                     
                     # Try multiple search engines with ScraperAPI
                     search_engines = [
-                        ("DuckDuckGo", f"https://html.duckduckgo.com/html/?q={{}}")
+                        ("DuckDuckGo", f"https://lite.duckduckgo.com/lite/?q={{}}")
                     ]
                     
                     progress_text = st.empty()
@@ -991,35 +983,27 @@ elif page == "Vendor Search":
                                 
                                 found_in_iteration = 0
                                 
-                                # DuckDuckGo results - try multiple selectors
-                                # Try result__a (newer DuckDuckGo)
-                                for result in soup.find_all('a', class_='result__a'):
-                                    url = result.get('href', '')
+                                # DuckDuckGo Lite results - much simpler structure
+                                # Look for all links in result-link class
+                                for link in soup.find_all('a', class_='result-link'):
+                                    url = link.get('href', '')
                                     if url.startswith('http'):
                                         domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                         if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
                                             all_vendor_urls.add(f"https://{domain}")
                                             found_in_iteration += 1
                                 
-                                # Try result__url (older DuckDuckGo)
+                                # Alternative: look for span.link-text parent links
                                 if found_in_iteration == 0:
-                                    for result in soup.find_all('a', class_='result__url'):
-                                        url = result.get('href', '')
-                                        if url.startswith('http'):
-                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                                all_vendor_urls.add(f"https://{domain}")
-                                                found_in_iteration += 1
-                                
-                                # Try links-menu links
-                                if found_in_iteration == 0:
-                                    for result in soup.find_all('a', class_='result-link'):
-                                        url = result.get('href', '')
-                                        if url.startswith('http'):
-                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                                all_vendor_urls.add(f"https://{domain}")
-                                                found_in_iteration += 1
+                                    for span in soup.find_all('span', class_='link-text'):
+                                        parent_link = span.find_parent('a')
+                                        if parent_link:
+                                            url = parent_link.get('href', '')
+                                            if url.startswith('http'):
+                                                domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                                if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                    all_vendor_urls.add(f"https://{domain}")
+                                                    found_in_iteration += 1
                                 
                                 # Aggressive fallback
                                 for link in soup.find_all('a', href=True):
