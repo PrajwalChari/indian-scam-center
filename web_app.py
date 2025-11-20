@@ -22,7 +22,7 @@ OPENAI_MODEL = "gpt-3.5-turbo"
 # Page configuration
 st.set_page_config(
     page_title="Integrated Sponsor Center",
-    page_icon="💵",
+    page_icon="$",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -208,7 +208,7 @@ st.sidebar.markdown("---")
 if 'show_wolf' not in st.session_state:
     st.session_state.show_wolf = False
 
-if st.sidebar.button("💼", key="hidden_wolf_btn", help="Briefcase", use_container_width=False):
+if st.sidebar.button("[*]", key="hidden_wolf_btn", help="Briefcase", use_container_width=False):
     st.session_state.show_wolf = not st.session_state.show_wolf
 
 if st.session_state.show_wolf:
@@ -277,7 +277,7 @@ if page == "Dashboard":
         ai_color = "#28a745" if st.session_state.openai_enabled else "#dc3545"
         st.markdown(f"""
         <div class="stat-box">
-            <div class="stat-number" style="color: {ai_color};">{"✓" if st.session_state.openai_enabled else "✗"}</div>
+            <div class="stat-number" style="color: {ai_color};">{"OK" if st.session_state.openai_enabled else "X"}</div>
             <div class="stat-label">AI Assistant {ai_status}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -546,11 +546,11 @@ elif page == "Real Sponsors":
                         
                         # Display results in compact format
                         st.markdown("---")
-                        st.markdown("### 📊 Search Results Summary")
+                        st.markdown("### Search Results Summary")
                         st.markdown(f"**Project:** {project} | **Location:** {location} | **Found:** {len(company_urls)} companies")
                         
                         # Display results in a table
-                        st.markdown("### 📋 Company Results")
+                        st.markdown("### Company Results")
                         
                         # Create columns for table header
                         col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
@@ -585,7 +585,7 @@ elif page == "Real Sponsors":
                                     st.text("No emails")
                             
                             with col4:
-                                if st.button("➕", key=f"add_sponsor_{i}", help="Add to contact list"):
+                                if st.button("+", key=f"add_sponsor_{i}", help="Add to contact list"):
                                     contact_entry = {
                                         'name': company['name'],
                                         'url': company['url'],
@@ -596,11 +596,11 @@ elif page == "Real Sponsors":
                                     
                                     if not any(c['url'] == company['url'] for c in st.session_state.contact_list):
                                         st.session_state.contact_list.append(contact_entry)
-                                        st.success(f"✓ Added {company['name']}")
+                                        st.success(f"Added {company['name']}")
                                         st.rerun()
                         
                         # Detailed results in expander
-                        with st.expander("📄 View Detailed Text Results"):
+                        with st.expander("View Detailed Text Results"):
                             results_text = f"### SPONSOR SEARCH RESULTS\n"
                             results_text += f"**Project:** {project}\n"
                             results_text += f"**Industry:** {industry if industry else 'General'}\n"
@@ -645,7 +645,7 @@ elif page == "Real Sponsors":
     # Display previous sponsor search results if available
     if 'last_sponsor_search' in st.session_state and st.session_state.last_sponsor_search:
         st.markdown("---")
-        st.markdown("### 📋 Previous Sponsor Results")
+        st.markdown("### Previous Sponsor Results")
         
         company_results = st.session_state.last_sponsor_search
         
@@ -680,7 +680,7 @@ elif page == "Real Sponsors":
                     st.text("No emails")
             
             with col4:
-                if st.button("➕", key=f"add_prev_sponsor_{i}", help="Add to contact list"):
+                if st.button("+", key=f"add_prev_sponsor_{i}", help="Add to contact list"):
                     contact_entry = {
                         'name': company['name'],
                         'url': company['url'],
@@ -691,7 +691,7 @@ elif page == "Real Sponsors":
                     
                     if not any(c['url'] == company['url'] for c in st.session_state.contact_list):
                         st.session_state.contact_list.append(contact_entry)
-                        st.success(f"✓ Added {company['name']} to Email Center!")
+                        st.success(f"Added {company['name']} to Email Center!")
                         time.sleep(1)  # Show message briefly
 
 elif page == "Vendor Search":
@@ -851,11 +851,11 @@ elif page == "Vendor Search":
                         
                         # Display compact summary
                         st.markdown("---")
-                        st.markdown("### 📊 Vendor Search Summary")
+                        st.markdown("### Vendor Search Summary")
                         st.markdown(f"**Part:** {part_name} | **Region:** {location} | **Found:** {len(vendor_urls)} vendors")
                         
                         # Display results in compact table
-                        st.markdown("### 📋 Vendor Results")
+                        st.markdown("### Vendor Results")
                         
                         col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
                         with col1:
@@ -888,7 +888,7 @@ elif page == "Vendor Search":
                                     st.text("Visit site")
                             
                             with col4:
-                                if st.button("➕", key=f"add_vendor_{i}", help="Add to contact list"):
+                                if st.button("+", key=f"add_vendor_{i}", help="Add to contact list"):
                                     contact_entry = {
                                         'name': vendor['name'],
                                         'url': vendor['url'],
@@ -899,11 +899,11 @@ elif page == "Vendor Search":
                                     
                                     if not any(c['url'] == vendor['url'] for c in st.session_state.contact_list):
                                         st.session_state.contact_list.append(contact_entry)
-                                        st.success(f"✓ Added {vendor['name']}")
+                                        st.success(f"Added {vendor['name']}")
                                         st.rerun()
                         
                         # Detailed results in expander
-                        with st.expander("📄 View Detailed Results & Next Steps"):
+                        with st.expander("View Detailed Results & Next Steps"):
                             results_text = f"### VENDOR SEARCH RESULTS\n"
                             results_text += f"**Part:** {part_name}\n"
                             results_text += f"**Region:** {location}\n\n"
@@ -952,7 +952,7 @@ elif page == "Vendor Search":
     # Display previous vendor search results if available
     if 'last_vendor_search' in st.session_state and st.session_state.last_vendor_search:
         st.markdown("---")
-        st.markdown("### 📋 Previous Vendor Results")
+        st.markdown("### Previous Vendor Results")
         
         vendor_results = st.session_state.last_vendor_search
         
@@ -987,7 +987,7 @@ elif page == "Vendor Search":
                     st.text("Visit site")
             
             with col4:
-                if st.button("➕", key=f"add_prev_vendor_{i}", help="Add to contact list"):
+                if st.button("+", key=f"add_prev_vendor_{i}", help="Add to contact list"):
                     contact_entry = {
                         'name': vendor['name'],
                         'url': vendor['url'],
@@ -998,7 +998,7 @@ elif page == "Vendor Search":
                     
                     if not any(c['url'] == vendor['url'] for c in st.session_state.contact_list):
                         st.session_state.contact_list.append(contact_entry)
-                        st.success(f"✓ Added {vendor['name']} to Email Center!")
+                        st.success(f"Added {vendor['name']} to Email Center!")
                         time.sleep(1)  # Show message briefly
 
 elif page == "Email Center":
@@ -1032,7 +1032,7 @@ elif page == "Email Center":
         
         # Display contacts and create emails
         for i, contact in enumerate(filtered_contacts):
-            with st.expander(f"📧 {contact['name']} ({contact['type'].title()}) - {len(contact['emails'])} email(s)"):
+            with st.expander(f"{contact['name']} ({contact['type'].title()}) - {len(contact['emails'])} email(s)"):
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
@@ -1060,7 +1060,7 @@ elif page == "Email Center":
         # Email composer
         if 'show_email_composer' in st.session_state and st.session_state.show_email_composer:
             st.markdown("---")
-            st.markdown("### 📝 Compose Email")
+            st.markdown("### Compose Email")
             
             contact = st.session_state.selected_contact
             
@@ -1070,7 +1070,7 @@ elif page == "Email Center":
             # Email generation mode selection
             generation_mode = st.radio(
                 "Email Generation Method",
-                ["🤖 AI Generate (ChatGPT)", "📋 Use Template"],
+                ["AI Generate (ChatGPT)", "Use Template"],
                 horizontal=True
             )
             
@@ -1087,12 +1087,12 @@ elif page == "Email Center":
             amount = st.text_input("Amount/Details", placeholder="$5,000 or specific requirements")
             
             # AI Generation Mode
-            if generation_mode == "🤖 AI Generate (ChatGPT)":
+            if generation_mode == "AI Generate (ChatGPT)":
                 st.markdown("#### AI Email Generation")
                 
                 if not st.session_state.openai_enabled:
                     st.error("OpenAI API key not configured. Please add it to use AI generation.")
-                    generation_mode = "📋 Use Template"  # Fall back to template
+                    generation_mode = "Use Template"  # Fall back to template
                 else:
                     # AI-specific options
                     col1, col2 = st.columns(2)
@@ -1110,7 +1110,7 @@ elif page == "Email Center":
                     additional_notes = st.text_area("Additional Instructions for AI", 
                                                    placeholder="e.g., Emphasize our team's experience, mention previous successful projects, etc.")
                     
-                    if st.button("🤖 Generate Email with AI", type="primary"):
+                    if st.button("Generate Email with AI", type="primary"):
                         with st.spinner("AI is crafting your email..."):
                             try:
                                 # Build AI prompt
@@ -1180,7 +1180,7 @@ Adapt this template's structure, style, and tone to fit the current context. Rep
                                 # Store AI-generated content
                                 st.session_state.ai_generated_subject = ai_subject
                                 st.session_state.ai_generated_body = ai_email_body
-                                st.success("✨ AI email generated!")
+                                st.success("AI email generated!")
                                 
                             except Exception as e:
                                 st.error(f"AI generation failed: {str(e)}")
@@ -1189,7 +1189,7 @@ Adapt this template's structure, style, and tone to fit the current context. Rep
                     
                     # Display AI-generated email if available
                     if 'ai_generated_subject' in st.session_state and 'ai_generated_body' in st.session_state:
-                        st.markdown("### 📧 AI Generated Email")
+                        st.markdown("### AI Generated Email")
                         st.text_input("To:", value=recipient, disabled=True)
                         final_subject = st.text_input("Subject:", value=st.session_state.ai_generated_subject, key="ai_subject")
                         final_body = st.text_area("Body:", value=st.session_state.ai_generated_body, height=400, key="ai_body")
@@ -1199,7 +1199,7 @@ Adapt this template's structure, style, and tone to fit the current context. Rep
                         show_action_buttons = False
             
             # Template Mode
-            else:  # "📋 Use Template"
+            else:  # "Use Template"
                 # Email template selection
                 template_type = st.selectbox(
                     "Select Template",
@@ -1269,7 +1269,7 @@ Best regards,
                 email_body = default_body
                 
                 # Display email preview
-                st.markdown("### 📧 Email Preview")
+                st.markdown("### Email Preview")
                 st.text_input("To:", value=recipient, disabled=True)
                 final_subject = st.text_input("Subject:", value=subject_line, key="template_subject")
                 final_body = st.text_area("Body:", value=email_body, height=400, key="template_body")
@@ -1330,7 +1330,7 @@ Best regards,
     # Show drafted emails section
     if st.session_state.drafted_emails:
         st.markdown("---")
-        st.markdown(f"### 📨 Drafted Emails ({len(st.session_state.drafted_emails)})")
+        st.markdown(f"### Drafted Emails ({len(st.session_state.drafted_emails)})")
         
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -1359,7 +1359,7 @@ Best regards,
             all_emails_text += f"{email['body']}\n\n"
         
         st.download_button(
-            label="📥 Download All Drafted Emails as TXT",
+            label="Download All Drafted Emails as TXT",
             data=all_emails_text,
             file_name=f"drafted_emails_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
             mime="text/plain",
@@ -1370,7 +1370,7 @@ elif page == "Email Templates":
     st.markdown('<p class="main-header">Email Template Manager</p>', unsafe_allow_html=True)
     
     # Show saved custom templates
-    st.markdown("### 📚 Your Saved Templates")
+    st.markdown("### Your Saved Templates")
     
     if not st.session_state.saved_email_templates:
         st.info("No custom templates saved yet. Create emails in Email Center and save them as templates!")
@@ -1378,7 +1378,7 @@ elif page == "Email Templates":
         st.success(f"You have {len(st.session_state.saved_email_templates)} saved template(s)")
         
         for i, template in enumerate(st.session_state.saved_email_templates):
-            with st.expander(f"📄 {template['name']}"):
+            with st.expander(f"{template['name']}"):
                 st.markdown(f"**Subject:** {template['subject']}")
                 st.text_area("Body:", value=template['body'], height=300, key=f"template_view_{i}", disabled=True)
                 
@@ -1399,7 +1399,7 @@ elif page == "Email Templates":
                         st.rerun()
     
     st.markdown("---")
-    st.markdown("### 📝 Create New Template")
+    st.markdown("### Create New Template")
     
     # Template creation form
     new_template_name = st.text_input("Template Name", placeholder="e.g., My Custom Sponsorship Request")
@@ -1421,7 +1421,7 @@ elif page == "Email Templates":
             st.error("Please fill in all fields")
     
     st.markdown("---")
-    st.markdown("### 📋 Default Templates")
+    st.markdown("### Default Templates")
     st.info("These are built-in templates you can use as starting points")
     
     default_templates = {
@@ -1470,7 +1470,7 @@ Best regards,
     }
     
     for name, body in default_templates.items():
-        with st.expander(f"📄 {name}"):
+        with st.expander(f"{name}"):
             st.text_area("Template:", value=body, height=250, key=f"default_{name}", disabled=True)
 
 elif page == "Company Database":
