@@ -14,6 +14,7 @@ import csv
 import io
 import os
 import time
+from database import SponsorDatabase
 
 # OpenAI API Configuration - Use environment variable for security
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -181,6 +182,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Initialize database
+@st.cache_resource
+def init_database():
+    """Initialize database connection (cached for performance)."""
+    return SponsorDatabase()
+
+db = init_database()
+
 # Initialize session state
 if 'found_companies' not in st.session_state:
     st.session_state.found_companies = []
@@ -250,43 +259,82 @@ if SCRAPER_API_KEY:
 else:
     st.sidebar.warning("ScraperAPI: Not Configured (may get blocked)")
 
+# Get database statistics
+db_stats = db.get_statistics()
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Statistics")
-st.sidebar.metric("Companies Found", len(st.session_state.found_companies))
-st.sidebar.metric("Vendors Found", len(st.session_state.recommended_vendors))
-st.sidebar.metric("Contact List", len(st.session_state.contact_list))
-st.sidebar.metric("Drafted Emails", len(st.session_state.drafted_emails))
+st.sidebar.metric("Total Companies", db_stats['total_companies'])
+st.sidebar.metric("Sponsors", db_stats['total_sponsors'])
+st.sidebar.metric("Vendors", db_stats['total_vendors'])
+st.sidebar.metric("Contacts", db_stats['total_contacts'])
+st.sidebar.metric("Drafted Emails", db_stats['drafted_emails'])
 
 # Main Content
 if page == "Dashboard":
     st.markdown('<p class="main-header">Sponsors Dashboard</p>', unsafe_allow_html=True)
     
-    # Stats
-    col1, col2, col3 = st.columns(3)
+    # Stats from database
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown(f"""
         <div class="stat-box">
-            <div class="stat-number">{len(st.session_state.found_companies)}</div>
-            <div class="stat-label">Companies Found</div>
+            <div class="stat-number">{db_stats['total_companies']}</div>
+            <div class="stat-label">Total Companies</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown(f"""
         <div class="stat-box">
-            <div class="stat-number">{len(st.session_state.recommended_vendors)}</div>
-            <div class="stat-label">Vendors Recommended</div>
+            <div class="stat-number">{db_stats['total_contacts']}</div>
+            <div class="stat-label">Contact Emails</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
-        ai_status = "Connected" if st.session_state.openai_enabled else "Not Configured"
-        ai_color = "#28a745" if st.session_state.openai_enabled else "#dc3545"
         st.markdown(f"""
         <div class="stat-box">
-            <div class="stat-number" style="color: {ai_color};">{"OK" if st.session_state.openai_enabled else "X"}</div>
-            <div class="stat-label">AI Assistant {ai_status}</div>
+            <div class="stat-number">{db_stats['drafted_emails']}</div>
+            <div class="stat-label">Drafted Emails</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class="stat-box">
+            <div class="stat-number">{db_stats['sent_emails']}</div>
+            <div class="stat-label">Sent Emails</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Second row of stats
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="stat-box">
+            <div class="stat-number">{db_stats['total_sponsors']}</div>
+            <div class="stat-label">Sponsors</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="stat-box">
+            <div class="stat-number">{db_stats['total_vendors']}</div>
+            <div class="stat-label">Vendors</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        reply_rate = f"{int((db_stats['replied_emails'] / db_stats['sent_emails'] * 100)) if db_stats['sent_emails'] > 0 else 0}%"
+        st.markdown(f"""
+        <div class="stat-box">
+            <div class="stat-number">{reply_rate}</div>
+            <div class="stat-label">Reply Rate</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -305,8 +353,8 @@ if page == "Dashboard":
         if st.button("Find Vendors", use_container_width=True, key="dash_vendors"):
             st.session_state.page_switch = "Vendor Search"
             st.rerun()
-        if st.button("Export Data", use_container_width=True, key="dash_export"):
-            st.session_state.page_switch = "Export Tools"
+        if st.button("Email Center", use_container_width=True, key="dash_email_center"):
+            st.session_state.page_switch = "Email Center"
             st.rerun()
 
 elif page == "Email Search":
@@ -633,7 +681,23 @@ elif page == "Real Sponsors":
                                     st.text("No emails")
                             
                             with col4:
-                                if st.button("+", key=f"add_sponsor_{i}", help="Add to contact list"):
+                                if st.button("+", key=f"add_sponsor_{i}", help="Add to database"):
+                                    # Save to database
+                                    company_id = db.add_company(
+                                        name=company['name'],
+                                        url=company['url'],
+                                        company_type='sponsor',
+                                        industry=industry if industry else None,
+                                        project_part=project,
+                                        relevance_score=company.get('relevance_score', 0)
+                                    )
+                                    
+                                    # Add contacts
+                                    if company['emails']:
+                                        for email in company['emails']:
+                                            db.add_contact(company_id, email)
+                                    
+                                    # Also add to session state for compatibility
                                     contact_entry = {
                                         'name': company['name'],
                                         'url': company['url'],
@@ -644,8 +708,10 @@ elif page == "Real Sponsors":
                                     
                                     if not any(c['url'] == company['url'] for c in st.session_state.contact_list):
                                         st.session_state.contact_list.append(contact_entry)
-                                        st.success(f"Added {company['name']}")
-                                        st.rerun()
+                                    
+                                    st.success(f"Added {company['name']} to database!")
+                                    time.sleep(0.5)
+                                    st.rerun()
                         
                         # Detailed results in expander
                         with st.expander("View Detailed Text Results"):
@@ -1023,7 +1089,22 @@ elif page == "Vendor Search":
                                     st.text("Visit site")
                             
                             with col4:
-                                if st.button("+", key=f"add_vendor_{i}", help="Add to contact list"):
+                                if st.button("+", key=f"add_vendor_{i}", help="Add to database"):
+                                    # Save to database
+                                    company_id = db.add_company(
+                                        name=vendor['name'],
+                                        url=vendor['url'],
+                                        company_type='vendor',
+                                        project_part=part_name,
+                                        relevance_score=vendor.get('relevance_score', 0)
+                                    )
+                                    
+                                    # Add contacts
+                                    if vendor['emails']:
+                                        for email in vendor['emails']:
+                                            db.add_contact(company_id, email)
+                                    
+                                    # Also add to session state for compatibility
                                     contact_entry = {
                                         'name': vendor['name'],
                                         'url': vendor['url'],
@@ -1034,8 +1115,10 @@ elif page == "Vendor Search":
                                     
                                     if not any(c['url'] == vendor['url'] for c in st.session_state.contact_list):
                                         st.session_state.contact_list.append(contact_entry)
-                                        st.success(f"Added {vendor['name']}")
-                                        st.rerun()
+                                    
+                                    st.success(f"Added {vendor['name']} to database!")
+                                    time.sleep(0.5)
+                                    st.rerun()
                         
                         # Detailed results in expander
                         with st.expander("View Detailed Results & Next Steps"):
@@ -1611,37 +1694,138 @@ Best regards,
 elif page == "Company Database":
     st.markdown('<p class="main-header">Company Database</p>', unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns(3)
+    # Search and filter
+    col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
-        if st.button("Refresh Database", use_container_width=True):
-            st.rerun()
+        search_term = st.text_input("Search companies", placeholder="Search by name, URL, or project...")
     with col2:
-        if st.button("Clear Database", use_container_width=True):
-            st.session_state.found_companies.clear()
-            st.session_state.recommended_vendors.clear()
-            st.success("Database cleared!")
+        filter_type = st.selectbox("Filter by type", ["All", "Sponsors", "Vendors"])
+    with col3:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Refresh", use_container_width=True):
             st.rerun()
     
     st.markdown("---")
     
-    # Display companies
-    if st.session_state.found_companies:
-        st.markdown(f"### Email Search Results ({len(st.session_state.found_companies)} entries)")
-        for i, email in enumerate(st.session_state.found_companies, 1):
-            st.code(f"{i}. {email}")
+    # Get companies from database
+    if search_term:
+        companies = db.search_companies(search_term)
     else:
-        st.info("No companies in database. Use Email Search to add entries.")
+        company_type_filter = None
+        if filter_type == "Sponsors":
+            company_type_filter = "sponsor"
+        elif filter_type == "Vendors":
+            company_type_filter = "vendor"
+        companies = db.get_all_companies(company_type=company_type_filter)
     
-    st.markdown("---")
-    
-    # Display vendors
-    if st.session_state.recommended_vendors:
-        st.markdown(f"### Recommended Vendors ({len(st.session_state.recommended_vendors)} entries)")
-        for i, vendor in enumerate(st.session_state.recommended_vendors, 1):
-            with st.expander(f"Entry {i} - {vendor.get('type', 'Unknown')} - {vendor.get('timestamp', 'N/A')}"):
-                st.markdown(vendor.get('results', 'No details available'))
+    if not companies:
+        st.info("No companies in database yet. Add companies from Real Sponsors or Vendor Search pages.")
     else:
-        st.info("No vendors in database. Use Vendor Search or Cash Sponsors to add entries.")
+        st.success(f"Found {len(companies)} companies in database")
+        
+        # Display companies in a nice table format
+        for company in companies:
+            with st.expander(f"🏢 {company['name']} ({company['type'].title()})"):
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.markdown(f"**Website:** [{company['url']}]({company['url']})")
+                    
+                    if company['type'] == 'sponsor':
+                        st.markdown(f"**Project:** {company.get('project_part', 'N/A')}")
+                    else:
+                        st.markdown(f"**Part/Product:** {company.get('project_part', 'N/A')}")
+                    
+                    if company['industry']:
+                        st.markdown(f"**Industry:** {company['industry']}")
+                    
+                    st.markdown(f"**Relevance Score:** {company['relevance_score']}")
+                    st.markdown(f"**Added:** {company['date_added']}")
+                    
+                    if company['notes']:
+                        st.markdown(f"**Notes:** {company['notes']}")
+                
+                with col2:
+                    # Get contacts for this company
+                    contacts = db.get_company_contacts(company['id'])
+                    
+                    if contacts:
+                        st.markdown(f"**Contacts:** ({len(contacts)})")
+                        for contact in contacts:
+                            verified = " ✓" if contact['is_verified'] else ""
+                            primary = " [Primary]" if contact['is_primary'] else ""
+                            st.text(f"• {contact['email']}{verified}{primary}")
+                    else:
+                        st.warning("No contacts")
+                    
+                    # Get emails sent to this company
+                    emails = db.get_company_emails(company['id'])
+                    if emails:
+                        st.markdown(f"**Emails:** {len(emails)} drafted/sent")
+                    
+                    # Action buttons
+                    st.markdown("---")
+                    if st.button("View Details", key=f"view_{company['id']}", use_container_width=True):
+                        st.session_state.selected_company_id = company['id']
+                        st.session_state.show_company_details = True
+                    
+                    if st.button("Delete", key=f"delete_{company['id']}", use_container_width=True):
+                        if db.delete_company(company['id']):
+                            st.success(f"Deleted {company['name']}")
+                            st.rerun()
+        
+        st.markdown("---")
+        
+        # Export database
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Export All to CSV", use_container_width=True):
+                # Create CSV
+                csv_buffer = io.StringIO()
+                csv_writer = csv.writer(csv_buffer)
+                csv_writer.writerow(["Name", "URL", "Type", "Industry", "Project/Part", "Relevance", "Added", "Notes"])
+                
+                for company in companies:
+                    csv_writer.writerow([
+                        company['name'],
+                        company['url'],
+                        company['type'],
+                        company.get('industry', ''),
+                        company.get('project_part', ''),
+                        company['relevance_score'],
+                        company['date_added'],
+                        company.get('notes', '')
+                    ])
+                
+                st.download_button(
+                    label="Download CSV",
+                    data=csv_buffer.getvalue(),
+                    file_name=f"companies_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        
+        with col2:
+            if st.button("Export with Contacts", use_container_width=True):
+                companies_with_contacts = db.get_companies_with_contacts()
+                json_data = json.dumps(companies_with_contacts, indent=2)
+                
+                st.download_button(
+                    label="Download JSON",
+                    data=json_data,
+                    file_name=f"companies_contacts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
+        
+        with col3:
+            if st.button("Clear All Data", type="secondary", use_container_width=True):
+                st.warning("This will delete ALL companies and related data!")
+                if st.button("Confirm Delete All", type="primary"):
+                    for company in companies:
+                        db.delete_company(company['id'])
+                    st.success("All data cleared!")
+                    st.rerun()
 
 elif page == "Export Tools":
     st.markdown('<p class="main-header">Export & Reporting Tools</p>', unsafe_allow_html=True)

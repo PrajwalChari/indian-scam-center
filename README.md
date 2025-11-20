@@ -7,12 +7,34 @@ This project provides a comprehensive solution for automatically discovering and
 - **Intelligent Web Crawling**: Automatically discovers and searches multiple pages on a website
 - **Real Email Extraction**: Uses advanced regex patterns to find email addresses in HTML content
 - **Smart Page Discovery**: Automatically checks common contact pages (/contact, /about, /team, etc.)
+- **SQL Database**: Persistent storage for companies, contacts, and emails (NEW!)
 - **Email Verification**: 
   - Format validation using industry-standard libraries
   - DNS/MX record verification
   - SMTP server verification (optional)
 - **Respectful Scraping**: Includes delays and rate limiting to be respectful to websites
 - **Comprehensive Results**: Detailed reporting of found emails and their verification status
+- **Web Interface**: Full-featured Streamlit web app for sponsor/vendor search (NEW!)
+
+## 🗄️ Database Features (NEW!)
+
+The system now includes a persistent SQL database that stores:
+- **Companies** - All sponsors and vendors with details
+- **Contacts** - Email addresses linked to companies
+- **Emails** - Drafted and sent emails with status tracking
+- **Templates** - Custom email templates
+- **Interactions** - Track all communication history
+- **Search History** - Monitor your research activity
+
+**Benefits:**
+- ✅ Data persists between sessions
+- ✅ Search and filter your company database
+- ✅ Track email status (drafted, sent, replied)
+- ✅ Calculate reply rates
+- ✅ Export to CSV/JSON
+- ✅ Professional contact management
+
+See [DATABASE_README.md](DATABASE_README.md) for full documentation.
 
 ## 📋 Requirements
 
