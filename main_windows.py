@@ -71,7 +71,7 @@ class EmailSearcher:
             # Use ScraperAPI if key is available
             if self.scraper_api_key:
                 scraper_url = f"http://api.scraperapi.com?api_key={self.scraper_api_key}&url={url}"
-                response = requests.get(scraper_url, timeout=60)
+                response = requests.get(scraper_url, timeout=60, verify=False)
             else:
                 response = self.session.get(url, timeout=10, verify=False)
             

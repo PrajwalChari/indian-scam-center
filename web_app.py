@@ -19,8 +19,8 @@ import time
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gpt-3.5-turbo"
 
-# ScraperAPI Configuration - Use environment variable for security
-SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "")
+# ScraperAPI Configuration - Use environment variable for security  
+SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "d199dd654e213de081c185f78bbb5f76")
 
 # Page configuration
 st.set_page_config(
