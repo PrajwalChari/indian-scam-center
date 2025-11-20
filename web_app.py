@@ -531,6 +531,7 @@ elif page == "Real Sponsors":
                     
                     # Try multiple search engines with ScraperAPI
                     search_engines = [
+                        ("Google", f"https://www.google.com/search?q={{}}&num=20"),
                         ("Bing", f"https://www.bing.com/search?q={{}}"),
                         ("DuckDuckGo", f"https://html.duckduckgo.com/html/?q={{}}")
                     ]
@@ -538,7 +539,7 @@ elif page == "Real Sponsors":
                     for engine_name, engine_url_template in search_engines:
                         progress_text.info(f"🔍 Trying {engine_name}...")
                         
-                        for query in base_queries[:1]:  # Use only first query for speed
+                        for query in base_queries[:2]:  # Use first 2 queries
                             search_url = engine_url_template.format(query.replace(' ', '+'))
                             
                             search_status.text(f"Searching: {query}")
@@ -551,7 +552,7 @@ elif page == "Real Sponsors":
                                 try:
                                     search_status.text(f"⏳ Requesting via ScraperAPI... ({engine_name})")
                                     import requests
-                                    response = requests.get(scraper_url, timeout=20)
+                                    response = requests.get(scraper_url, timeout=60)
                                     if response.status_code == 200:
                                         search_content = response.text
                                         search_status.text(f"✅ Got response from {engine_name}")
@@ -583,14 +584,13 @@ elif page == "Real Sponsors":
                                 found_in_iteration = 0
                                 
                                 # DuckDuckGo results
-                                if engine_name == "DuckDuckGo":
-                                    for result in soup.find_all('a', class_='result__url'):
-                                        url = result.get('href', '')
-                                        if url.startswith('http'):
-                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                            if not any(skip in domain.lower() for skip in skip_domains):
-                                                all_company_urls.add(f"https://{domain}")
-                                                found_in_iteration += 1
+                                for result in soup.find_all('a', class_='result__url'):
+                                    url = result.get('href', '')
+                                    if url.startswith('http'):
+                                        domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                        if not any(skip in domain.lower() for skip in skip_domains):
+                                            all_company_urls.add(f"https://{domain}")
+                                            found_in_iteration += 1
                                 
                                 # Generic fallback - extract all links
                                 for link in soup.find_all('a', href=True):
@@ -918,7 +918,6 @@ elif page == "Vendor Search":
                     
                     # Try multiple search engines with ScraperAPI
                     search_engines = [
-                        ("Bing", f"https://www.bing.com/search?q={{}}"),
                         ("DuckDuckGo", f"https://html.duckduckgo.com/html/?q={{}}")
                     ]
                     
@@ -928,7 +927,7 @@ elif page == "Vendor Search":
                     for engine_name, engine_url_template in search_engines:
                         progress_text.info(f"🔍 Trying {engine_name}...")
                         
-                        for query in base_queries[:1]:  # Use only first query for speed
+                        for query in base_queries[:2]:  # Use first 2 queries
                             search_url = engine_url_template.format(query.replace(' ', '+'))
                             
                             search_status.text(f"Searching: {query}")
@@ -941,7 +940,7 @@ elif page == "Vendor Search":
                                 try:
                                     search_status.text(f"⏳ Requesting via ScraperAPI... ({engine_name})")
                                     import requests
-                                    response = requests.get(scraper_url, timeout=20)
+                                    response = requests.get(scraper_url, timeout=60)
                                     if response.status_code == 200:
                                         search_content = response.text
                                         search_status.text(f"✅ Got response from {engine_name}")
@@ -972,14 +971,13 @@ elif page == "Vendor Search":
                                 found_in_iteration = 0
                                 
                                 # DuckDuckGo results
-                                if engine_name == "DuckDuckGo":
-                                    for result in soup.find_all('a', class_='result__url'):
-                                        url = result.get('href', '')
-                                        if url.startswith('http'):
-                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                                all_vendor_urls.add(f"https://{domain}")
-                                                found_in_iteration += 1
+                                for result in soup.find_all('a', class_='result__url'):
+                                    url = result.get('href', '')
+                                    if url.startswith('http'):
+                                        domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                        if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                            all_vendor_urls.add(f"https://{domain}")
+                                            found_in_iteration += 1
                                 
                                 # Generic fallback
                                 for link in soup.find_all('a', href=True):
