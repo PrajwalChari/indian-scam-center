@@ -525,6 +525,10 @@ elif page == "Real Sponsors":
                     
                     all_company_urls = set()
                     
+                    # Create progress indicators
+                    progress_text = st.empty()
+                    search_status = st.empty()
+                    
                     # Try multiple search engines with ScraperAPI
                     search_engines = [
                         ("Google", f"https://www.google.com/search?q={{}}&num=20"),
@@ -533,8 +537,12 @@ elif page == "Real Sponsors":
                     ]
                     
                     for engine_name, engine_url_template in search_engines:
+                        progress_text.info(f"🔍 Trying {engine_name}...")
+                        
                         for query in base_queries[:2]:  # Use first 2 queries
                             search_url = engine_url_template.format(query.replace(' ', '+'))
+                            
+                            search_status.text(f"Searching: {query}")
                             
                             # Use ScraperAPI directly if available
                             if SCRAPER_API_KEY and SCRAPER_API_KEY != "d199dd654e213de081c185f78bbb5f76":
@@ -542,22 +550,34 @@ elif page == "Real Sponsors":
                                 encoded_url = urllib.parse.quote(search_url, safe='')
                                 scraper_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={encoded_url}&render=true"
                                 try:
+                                    search_status.text(f"⏳ Requesting via ScraperAPI... ({engine_name})")
                                     import requests
                                     response = requests.get(scraper_url, timeout=60)
-                                    search_content = response.text if response.status_code == 200 else None
-                                except:
+                                    if response.status_code == 200:
+                                        search_content = response.text
+                                        search_status.text(f"✅ Got response from {engine_name}")
+                                    else:
+                                        search_status.text(f"❌ {engine_name} returned status {response.status_code}")
+                                        search_content = None
+                                except Exception as e:
+                                    search_status.text(f"❌ {engine_name} failed: {str(e)[:50]}")
                                     search_content = None
                             else:
                                 # Direct request without ScraperAPI
+                                search_status.text(f"⏳ Direct request to {engine_name}...")
                                 search_content = searcher.get_page_content(search_url)
                         
                             if search_content:
                                 from bs4 import BeautifulSoup
                                 soup = BeautifulSoup(search_content, 'html.parser')
                                 
+                                search_status.text(f"🔍 Parsing {engine_name} results...")
+                                
                                 # Extract URLs based on search engine
                                 skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
                                                'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'instagram']
+                                
+                                found_in_iteration = 0
                                 
                                 # Google results
                                 if engine_name == "Google":
@@ -567,6 +587,7 @@ elif page == "Real Sponsors":
                                             domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                             if not any(skip in domain.lower() for skip in skip_domains):
                                                 all_company_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
                                 
                                 # Bing results
                                 elif engine_name == "Bing":
@@ -576,6 +597,7 @@ elif page == "Real Sponsors":
                                             domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                             if not any(skip in domain.lower() for skip in skip_domains):
                                                 all_company_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
                                 
                                 # DuckDuckGo results
                                 else:
@@ -585,6 +607,7 @@ elif page == "Real Sponsors":
                                             domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                             if not any(skip in domain.lower() for skip in skip_domains):
                                                 all_company_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
                                 
                                 # Generic fallback - extract all links
                                 for link in soup.find_all('a', href=True):
@@ -593,14 +616,26 @@ elif page == "Real Sponsors":
                                         domain = href.replace('https://', '').replace('http://', '').replace('www.', '').split('?')[0].split('/')[0]
                                         if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
                                             all_company_urls.add(f"https://{domain}")
+                                            found_in_iteration += 1
+                                
+                                if found_in_iteration > 0:
+                                    search_status.success(f"✅ Found {found_in_iteration} companies from {engine_name} (Total: {len(all_company_urls)})")
+                                else:
+                                    search_status.warning(f"⚠️ No results from {engine_name}")
                                 
                                 # Break if we found enough results
                                 if len(all_company_urls) >= 10:
+                                    progress_text.success(f"✅ Found {len(all_company_urls)} companies! Stopping search.")
                                     break
+                            else:
+                                search_status.warning(f"⚠️ No response from {engine_name}")
                         
                         # Break outer loop if we have enough
                         if len(all_company_urls) >= 10:
                             break
+                    
+                    progress_text.empty()
+                    search_status.empty()
                     
                     # If still no results, show clear message
                     if not all_company_urls:
@@ -904,9 +939,16 @@ elif page == "Vendor Search":
                         ("DuckDuckGo", f"https://html.duckduckgo.com/html/?q={{}}")
                     ]
                     
+                    progress_text = st.empty()
+                    search_status = st.empty()
+                    
                     for engine_name, engine_url_template in search_engines:
+                        progress_text.info(f"🔍 Trying {engine_name}...")
+                        
                         for query in base_queries[:2]:  # Use first 2 queries
                             search_url = engine_url_template.format(query.replace(' ', '+'))
+                            
+                            search_status.text(f"Searching: {query}")
                             
                             # Use ScraperAPI directly if available
                             if SCRAPER_API_KEY and SCRAPER_API_KEY != "d199dd654e213de081c185f78bbb5f76":
@@ -914,21 +956,33 @@ elif page == "Vendor Search":
                                 encoded_url = urllib.parse.quote(search_url, safe='')
                                 scraper_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={encoded_url}&render=true"
                                 try:
+                                    search_status.text(f"⏳ Requesting via ScraperAPI... ({engine_name})")
                                     import requests
                                     response = requests.get(scraper_url, timeout=60)
-                                    search_content = response.text if response.status_code == 200 else None
-                                except:
+                                    if response.status_code == 200:
+                                        search_content = response.text
+                                        search_status.text(f"✅ Got response from {engine_name}")
+                                    else:
+                                        search_status.text(f"❌ {engine_name} returned status {response.status_code}")
+                                        search_content = None
+                                except Exception as e:
+                                    search_status.text(f"❌ {engine_name} failed: {str(e)[:50]}")
                                     search_content = None
                             else:
                                 # Direct request without ScraperAPI
+                                search_status.text(f"⏳ Direct request to {engine_name}...")
                                 search_content = searcher.get_page_content(search_url)
                             
                             if search_content:
                                 from bs4 import BeautifulSoup
                                 soup = BeautifulSoup(search_content, 'html.parser')
                                 
+                                search_status.text(f"🔍 Parsing {engine_name} results...")
+                                
                                 skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
                                                'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'ebay', 'instagram']
+                                
+                                found_in_iteration = 0
                                 
                                 # Google results
                                 if engine_name == "Google":
@@ -938,6 +992,7 @@ elif page == "Vendor Search":
                                             domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                             if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
                                                 all_vendor_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
                                 
                                 # Bing results
                                 elif engine_name == "Bing":
@@ -947,6 +1002,7 @@ elif page == "Vendor Search":
                                             domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                             if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
                                                 all_vendor_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
                                 
                                 # DuckDuckGo results
                                 else:
@@ -956,6 +1012,7 @@ elif page == "Vendor Search":
                                             domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                             if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
                                                 all_vendor_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
                                 
                                 # Generic fallback
                                 for link in soup.find_all('a', href=True):
@@ -964,12 +1021,19 @@ elif page == "Vendor Search":
                                         domain = href.replace('https://', '').replace('http://', '').replace('www.', '').split('?')[0].split('/')[0]
                                         if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
                                             all_vendor_urls.add(f"https://{domain}")
+                                            found_in_iteration += 1
+                                
+                                search_status.success(f"✅ Found {found_in_iteration} companies from {engine_name}")
                                 
                                 if len(all_vendor_urls) >= 15:
+                                    progress_text.success(f"🎉 Collected {len(all_vendor_urls)} vendors!")
                                     break
                         
                         if len(all_vendor_urls) >= 15:
                             break
+                    
+                    progress_text.empty()
+                    search_status.empty()
                     
                     # If still no results after trying all engines
                     if not all_vendor_urls:
