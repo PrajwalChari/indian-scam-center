@@ -13,6 +13,7 @@ import json
 import csv
 import io
 import os
+import time
 
 # OpenAI API Configuration - Use environment variable for security
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -182,6 +183,12 @@ if 'found_companies' not in st.session_state:
     st.session_state.found_companies = []
 if 'recommended_vendors' not in st.session_state:
     st.session_state.recommended_vendors = []
+if 'contact_list' not in st.session_state:
+    st.session_state.contact_list = []  # Store companies with emails for email center
+if 'saved_email_templates' not in st.session_state:
+    st.session_state.saved_email_templates = []  # Store custom templates
+if 'drafted_emails' not in st.session_state:
+    st.session_state.drafted_emails = []  # Store emails created in session
 if 'page_switch' not in st.session_state:
     st.session_state.page_switch = None
 if 'openai_client' not in st.session_state:
@@ -223,8 +230,8 @@ if st.session_state.page_switch:
 else:
     page = st.sidebar.radio(
         "Navigation",
-        ["Dashboard", "Email Search", "Cash Sponsors (AI)", 
-         "Vendor Search", "Email Templates", "Company Database", "Export Tools"],
+        ["Dashboard", "Email Search", "Real Sponsors", 
+         "Vendor Search", "Email Center", "Email Templates", "Company Database", "Export Tools"],
         label_visibility="collapsed"
     )
 
@@ -239,6 +246,8 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("### Statistics")
 st.sidebar.metric("Companies Found", len(st.session_state.found_companies))
 st.sidebar.metric("Vendors Found", len(st.session_state.recommended_vendors))
+st.sidebar.metric("Contact List", len(st.session_state.contact_list))
+st.sidebar.metric("Drafted Emails", len(st.session_state.drafted_emails))
 
 # Main Content
 if page == "Dashboard":
@@ -395,77 +404,295 @@ elif page == "Email Search":
             result_text += f"{i:2d}. {email}\n"
         st.text_area("Results", result_text, height=300, label_visibility="collapsed")
 
-elif page == "Cash Sponsors (AI)":
-    st.markdown('<p class="main-header">AI Cash Sponsor Finder</p>', unsafe_allow_html=True)
+elif page == "Real Sponsors":
+    st.markdown('<p class="main-header">Real Sponsor Finder</p>', unsafe_allow_html=True)
     
-    if not st.session_state.openai_enabled:
-        st.error("OpenAI API key not configured. Please add it in Streamlit Cloud Secrets.")
-    else:
-        # Input section
-        project = st.text_area("What project or part needs sponsorship?", 
-                              placeholder="e.g., Flight Computer, Rocket Motors, 3D Printer Filament")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            industry = st.text_input("Industry/Category (optional)", 
-                                    placeholder="e.g., Avionics, Propulsion, Recovery systems")
-        with col2:
-            canadian_only = st.checkbox("Canadian companies only", value=True)
-            include_contact = st.checkbox("Include contact information", value=True)
-        
-        if st.button("Find Cash Sponsors", type="primary", use_container_width=True):
-            if not project:
-                st.error("Please describe your project or part")
-            else:
-                with st.spinner("AI is searching for cash sponsors..."):
-                    try:
-                        location_filter = "Canadian" if canadian_only else "North American"
-                        industry_context = f" in the {industry} industry" if industry else ""
-                        contact_instruction = " Include company websites and contact information where possible." if include_contact else ""
+    # Input section
+    project = st.text_area("What project or part needs sponsorship?", 
+                          placeholder="e.g., Flight Computer, Rocket Motors, 3D Printer Filament")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        industry = st.text_input("Industry/Category (optional)", 
+                                placeholder="e.g., Avionics, Propulsion, Recovery systems")
+    with col2:
+        canadian_only = st.checkbox("Canadian companies only", value=True)
+        include_contact = st.checkbox("Extract contact emails", value=True)
+    
+    if st.button("Find Real Sponsors", type="primary", use_container_width=True):
+        if not project:
+            st.error("Please describe your project or part")
+        else:
+            with st.spinner("Searching for real sponsors with actual contact info..."):
+                try:
+                    # Build search query
+                    location = "Canada" if canadian_only else "North America"
+                    industry_part = f"{industry} " if industry else ""
+                    
+                    # Build multiple search URLs for better results
+                    base_queries = [
+                        f"{project} {industry_part}companies {location}",
+                        f"{project} {industry_part}manufacturers {location}",
+                        f"{project} {industry_part}suppliers {location}"
+                    ]
+                    
+                    st.info(f"Searching for: {project} {industry_part}in {location}")
+                    
+                    # Initialize searcher with faster settings
+                    searcher = EmailSearcher(max_pages=2, delay=0.5)
+                    
+                    all_company_urls = set()
+                    
+                    # Try DuckDuckGo search (more scraping-friendly)
+                    for query in base_queries[:2]:  # Use first 2 queries
+                        search_url = f"https://html.duckduckgo.com/html/?q={query.replace(' ', '+')}"
                         
-                        prompt = f"""You are a sponsorship expert specializing in finding cash sponsors for projects and events.
+                        search_content = searcher.get_page_content(search_url)
                         
-Please find {location_filter} companies that typically provide cash sponsorships for: {project}{industry_context}
-
-Requirements:
-- Focus on companies with active sponsorship programs
-- Include company names, locations, and sponsorship focus areas
-- Provide website URLs and sponsorship contact information when available
-{contact_instruction}
-- Format the response clearly with company details
-- Prioritize companies that sponsor similar projects or events
-- Include typical sponsorship amounts if known
-
-Please provide at least 8-15 relevant potential sponsors with detailed information."""
-
-                        response = st.session_state.openai_client.chat.completions.create(
-                            model=OPENAI_MODEL,
-                            messages=[
-                                {"role": "system", "content": "You are a helpful sponsorship consultant specializing in corporate partnerships and funding."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            max_tokens=2000,
-                            temperature=0.7
-                        )
+                        if search_content:
+                            from bs4 import BeautifulSoup
+                            soup = BeautifulSoup(search_content, 'html.parser')
+                            
+                            # Extract URLs from DuckDuckGo results
+                            for result in soup.find_all('a', class_='result__url'):
+                                url = result.get('href', '')
+                                if url.startswith('http'):
+                                    # Clean the URL
+                                    clean_url = url.split('?')[0]
+                                    if 'duckduckgo' not in clean_url and 'google' not in clean_url:
+                                        all_company_urls.add(clean_url)
+                            
+                            # Also try finding links in result snippets
+                            for link in soup.find_all('a', href=True):
+                                href = link['href']
+                                if href.startswith('http') and 'duckduckgo' not in href:
+                                    all_company_urls.add(href.split('?')[0])
+                    
+                    # If no results, try manual company list approach
+                    if not all_company_urls:
+                        st.warning("Search engines blocking requests. Using alternative approach...")
                         
-                        ai_response = response.choices[0].message.content
+                        # Manual fallback: construct likely company website patterns
+                        keywords = project.lower().split()[:3]  # Use first 3 words
+                        industry_keywords = industry.lower().split()[:2] if industry else []
                         
-                        st.success("AI Search Complete!")
-                        st.markdown("### Recommended Cash Sponsors:")
-                        st.markdown(ai_response)
+                        all_keywords = keywords + industry_keywords
+                        
+                        st.info(f"Searching for companies related to: {', '.join(all_keywords)}")
+                        
+                        # Direct company domain search
+                        for keyword in all_keywords[:3]:
+                            # Try common company website patterns
+                            potential_urls = [
+                                f"https://www.{keyword}.com",
+                                f"https://www.{keyword}.ca",
+                                f"https://{keyword}.com",
+                                f"https://{keyword}.ca"
+                            ]
+                            
+                            for url in potential_urls:
+                                try:
+                                    test_content = searcher.get_page_content(url)
+                                    if test_content and len(test_content) > 1000:  # Valid website
+                                        all_company_urls.add(url)
+                                        st.success(f"Found: {url}")
+                                except:
+                                    pass
+                    
+                    # Remove duplicates and limit
+                    company_urls = list(all_company_urls)[:8]
+                    
+                    if not company_urls:
+                        st.error("No company websites found. Try:")
+                        st.markdown("""
+                        - Be more specific with your project description
+                        - Try different industry keywords
+                        - Use the Email Search tab to search specific company websites manually
+                        """)
+                    else:
+                        st.success(f"Found {len(company_urls)} potential sponsor websites")
+                        
+                        # Store results in structured format
+                        company_results = []
+                        
+                        # Process each company URL with progress
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        for i, url in enumerate(company_urls, 1):
+                            progress_bar.progress(i / len(company_urls))
+                            status_text.text(f"Processing {i}/{len(company_urls)}: {url}")
+                            
+                            company_data = {
+                                'url': url,
+                                'name': url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0],
+                                'emails': []
+                            }
+                            
+                            if include_contact:
+                                try:
+                                    emails = searcher.search_website_for_emails(url)
+                                    company_data['emails'] = list(emails) if emails else []
+                                except:
+                                    pass
+                            
+                            company_results.append(company_data)
+                        
+                        progress_bar.empty()
+                        status_text.empty()
+                        
+                        # Store results in session state so buttons work
+                        st.session_state.last_sponsor_search = company_results
+                        
+                        # Display results in compact format
+                        st.markdown("---")
+                        st.markdown("### 📊 Search Results Summary")
+                        st.markdown(f"**Project:** {project} | **Location:** {location} | **Found:** {len(company_urls)} companies")
+                        
+                        # Display results in a table
+                        st.markdown("### 📋 Company Results")
+                        
+                        # Create columns for table header
+                        col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+                        with col1:
+                            st.markdown("**#**")
+                        with col2:
+                            st.markdown("**Company**")
+                        with col3:
+                            st.markdown("**Emails Found**")
+                        with col4:
+                            st.markdown("**Action**")
+                        
+                        st.markdown("---")
+                        
+                        # Display each company in compact row
+                        for i, company in enumerate(company_results, 1):
+                            col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+                            
+                            with col1:
+                                st.text(f"{i}")
+                            
+                            with col2:
+                                st.markdown(f"[{company['name']}]({company['url']})")
+                            
+                            with col3:
+                                if company['emails']:
+                                    emails_display = ', '.join(company['emails'][:2])
+                                    if len(company['emails']) > 2:
+                                        emails_display += f" +{len(company['emails'])-2} more"
+                                    st.text(emails_display)
+                                else:
+                                    st.text("No emails")
+                            
+                            with col4:
+                                if st.button("➕", key=f"add_sponsor_{i}", help="Add to contact list"):
+                                    contact_entry = {
+                                        'name': company['name'],
+                                        'url': company['url'],
+                                        'emails': company['emails'],
+                                        'type': 'sponsor',
+                                        'project': project
+                                    }
+                                    
+                                    if not any(c['url'] == company['url'] for c in st.session_state.contact_list):
+                                        st.session_state.contact_list.append(contact_entry)
+                                        st.success(f"✓ Added {company['name']}")
+                                        st.rerun()
+                        
+                        # Detailed results in expander
+                        with st.expander("📄 View Detailed Text Results"):
+                            results_text = f"### SPONSOR SEARCH RESULTS\n"
+                            results_text += f"**Project:** {project}\n"
+                            results_text += f"**Industry:** {industry if industry else 'General'}\n"
+                            results_text += f"**Location:** {location}\n\n"
+                            
+                            for i, company in enumerate(company_results, 1):
+                                results_text += f"{i}. {company['url']}\n"
+                                if company['emails']:
+                                    results_text += f"   Emails: {', '.join(company['emails'])}\n"
+                                results_text += "\n"
+                            
+                            st.text_area("Results", results_text, height=300)
+                            
+                            st.download_button(
+                                label="Download Results",
+                                data=results_text,
+                                file_name=f"sponsors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                mime="text/plain"
+                            )
                         
                         # Store in session state
                         st.session_state.recommended_vendors.append({
                             'type': 'sponsor',
                             'project': project,
-                            'results': ai_response,
+                            'results': results_text,
                             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         })
                         
-                    except Exception as e:
-                        st.error(f"AI search failed: {str(e)}")
-                        if "quota" in str(e).lower() or "billing" in str(e).lower():
-                            st.warning("Tip: Add credits to your OpenAI account at https://platform.openai.com/account/billing")
+                        # Download option
+                        st.download_button(
+                            label="Download Results",
+                            data=results_text,
+                            file_name=f"sponsors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                            mime="text/plain",
+                            use_container_width=True
+                        )
+                    
+                except Exception as e:
+                    st.error(f"Search failed: {str(e)}")
+                    st.info("Try using the Email Search tab to search specific company websites directly.")
+    
+    # Display previous sponsor search results if available
+    if 'last_sponsor_search' in st.session_state and st.session_state.last_sponsor_search:
+        st.markdown("---")
+        st.markdown("### 📋 Previous Sponsor Results")
+        
+        company_results = st.session_state.last_sponsor_search
+        
+        col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+        with col1:
+            st.markdown("**#**")
+        with col2:
+            st.markdown("**Company**")
+        with col3:
+            st.markdown("**Emails Found**")
+        with col4:
+            st.markdown("**Action**")
+        
+        st.markdown("---")
+        
+        for i, company in enumerate(company_results, 1):
+            col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+            
+            with col1:
+                st.text(f"{i}")
+            
+            with col2:
+                st.markdown(f"[{company['name']}]({company['url']})")
+            
+            with col3:
+                if company['emails']:
+                    emails_display = ', '.join(company['emails'][:2])
+                    if len(company['emails']) > 2:
+                        emails_display += f" +{len(company['emails'])-2} more"
+                    st.text(emails_display)
+                else:
+                    st.text("No emails")
+            
+            with col4:
+                if st.button("➕", key=f"add_prev_sponsor_{i}", help="Add to contact list"):
+                    contact_entry = {
+                        'name': company['name'],
+                        'url': company['url'],
+                        'emails': company['emails'],
+                        'type': 'sponsor',
+                        'project': company.get('project', 'N/A')
+                    }
+                    
+                    if not any(c['url'] == company['url'] for c in st.session_state.contact_list):
+                        st.session_state.contact_list.append(contact_entry)
+                        st.success(f"✓ Added {company['name']} to Email Center!")
+                        time.sleep(1)  # Show message briefly
 
 elif page == "Vendor Search":
     st.markdown('<p class="main-header">Specific Vendor & Parts Search</p>', unsafe_allow_html=True)
@@ -480,92 +707,522 @@ elif page == "Vendor Search":
     with col2:
         price_range = st.selectbox("Price Range", ["Any", "Under $100", "$100-$500", "$500-$1000", "Over $1000"])
     
-    find_contact = st.checkbox("Find supplier contact info", value=True)
+    find_contact = st.checkbox("Extract supplier contact emails", value=True)
     
     if st.button("Search Vendors", type="primary", use_container_width=True):
         if not part_name:
             st.error("Please enter a specific part or product name")
         else:
-            with st.spinner(f"Searching for '{part_name}' vendors..."):
-                # Provide search strategy and recommendations
-                st.success("Search Strategy Generated!")
+            with st.spinner(f"Searching for real '{part_name}' vendors..."):
+                try:
+                    # Build search queries
+                    location = country
+                    base_queries = [
+                        f"{part_name} supplier {location}",
+                        f"{part_name} distributor {location}",
+                        f"{part_name} manufacturer {location}",
+                        f"buy {part_name} {location}"
+                    ]
+                    
+                    st.info(f"Searching for: {part_name} vendors in {location}")
+                    
+                    # Initialize searcher with faster settings
+                    searcher = EmailSearcher(max_pages=2, delay=0.5)
+                    
+                    all_vendor_urls = set()
+                    
+                    # Try DuckDuckGo search
+                    for query in base_queries[:2]:  # Use first 2 queries
+                        search_url = f"https://html.duckduckgo.com/html/?q={query.replace(' ', '+')}"
+                        
+                        search_content = searcher.get_page_content(search_url)
+                        
+                        if search_content:
+                            from bs4 import BeautifulSoup
+                            soup = BeautifulSoup(search_content, 'html.parser')
+                            
+                            # Extract URLs from DuckDuckGo results
+                            for result in soup.find_all('a', class_='result__url'):
+                                url = result.get('href', '')
+                                if url.startswith('http'):
+                                    clean_url = url.split('?')[0]
+                                    if 'duckduckgo' not in clean_url and 'google' not in clean_url:
+                                        all_vendor_urls.add(clean_url)
+                            
+                            # Also try finding links in result snippets
+                            for link in soup.find_all('a', href=True):
+                                href = link['href']
+                                if href.startswith('http') and 'duckduckgo' not in href:
+                                    all_vendor_urls.add(href.split('?')[0])
+                    
+                    # If no results, try alternative approach
+                    if not all_vendor_urls:
+                        st.warning("Search engines blocking requests. Trying alternative methods...")
+                        
+                        # Extract keywords from part name
+                        keywords = part_name.lower().replace('-', ' ').split()[:3]
+                        
+                        st.info(f"Searching for vendors related to: {', '.join(keywords)}")
+                        
+                        # Try common vendor/distributor patterns
+                        for keyword in keywords:
+                            potential_urls = [
+                                f"https://www.{keyword}.com",
+                                f"https://www.{keyword}supply.com",
+                                f"https://www.{keyword}direct.com",
+                                f"https://{keyword}.com"
+                            ]
+                            
+                            for url in potential_urls:
+                                try:
+                                    test_content = searcher.get_page_content(url)
+                                    if test_content and len(test_content) > 1000:
+                                        all_vendor_urls.add(url)
+                                        st.success(f"Found: {url}")
+                                except:
+                                    pass
+                    
+                    # Add well-known distributors based on category
+                    common_distributors = {
+                        "electronics": ["https://www.digikey.com", "https://www.mouser.com", "https://www.newark.com"],
+                        "industrial": ["https://www.mcmaster.com", "https://www.grainger.com", "https://www.fastenal.com"],
+                        "aerospace": ["https://www.aviall.com", "https://www.wencor.com"],
+                        "robotics": ["https://www.robotshop.com", "https://www.pololu.com"],
+                        "3d printing": ["https://www.matterhackers.com", "https://www.prusa3d.com"]
+                    }
+                    
+                    # Check if part matches any category
+                    part_lower = part_name.lower()
+                    if any(word in part_lower for word in ["arduino", "sensor", "chip", "electronic", "circuit"]):
+                        all_vendor_urls.update(common_distributors["electronics"][:2])
+                    elif any(word in part_lower for word in ["bolt", "screw", "tool", "industrial"]):
+                        all_vendor_urls.update(common_distributors["industrial"][:2])
+                    elif any(word in part_lower for word in ["aviation", "aerospace", "flight"]):
+                        all_vendor_urls.update(common_distributors["aerospace"][:2])
+                    elif any(word in part_lower for word in ["robot", "servo", "motor"]):
+                        all_vendor_urls.update(common_distributors["robotics"][:2])
+                    elif any(word in part_lower for word in ["3d", "filament", "printer", "pla", "abs"]):
+                        all_vendor_urls.update(common_distributors["3d printing"][:2])
+                    
+                    # Remove duplicates and limit
+                    vendor_urls = list(all_vendor_urls)[:10]
+                    
+                    if not vendor_urls:
+                        st.error("No vendor websites found. Try:")
+                        st.markdown("""
+                        - Be more specific with part name/model number
+                        - Include manufacturer name if known
+                        - Use Email Search tab to search specific vendor websites
+                        """)
+                    else:
+                        st.success(f"Found {len(vendor_urls)} potential vendor websites")
+                        
+                        # Store results in structured format
+                        vendor_results = []
+                        
+                        # Process vendors with progress
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        for i, url in enumerate(vendor_urls, 1):
+                            progress_bar.progress(i / len(vendor_urls))
+                            status_text.text(f"Processing {i}/{len(vendor_urls)}: {url}")
+                            
+                            vendor_data = {
+                                'url': url,
+                                'name': url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0],
+                                'emails': []
+                            }
+                            
+                            if find_contact:
+                                try:
+                                    emails = searcher.search_website_for_emails(url)
+                                    vendor_data['emails'] = list(emails) if emails else []
+                                except:
+                                    pass
+                            
+                            vendor_results.append(vendor_data)
+                        
+                        progress_bar.empty()
+                        status_text.empty()
+                        
+                        # Store results in session state so buttons work
+                        st.session_state.last_vendor_search = vendor_results
+                        
+                        # Display compact summary
+                        st.markdown("---")
+                        st.markdown("### 📊 Vendor Search Summary")
+                        st.markdown(f"**Part:** {part_name} | **Region:** {location} | **Found:** {len(vendor_urls)} vendors")
+                        
+                        # Display results in compact table
+                        st.markdown("### 📋 Vendor Results")
+                        
+                        col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+                        with col1:
+                            st.markdown("**#**")
+                        with col2:
+                            st.markdown("**Vendor**")
+                        with col3:
+                            st.markdown("**Contact**")
+                        with col4:
+                            st.markdown("**Action**")
+                        
+                        st.markdown("---")
+                        
+                        for i, vendor in enumerate(vendor_results, 1):
+                            col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+                            
+                            with col1:
+                                st.text(f"{i}")
+                            
+                            with col2:
+                                st.markdown(f"[{vendor['name']}]({vendor['url']})")
+                            
+                            with col3:
+                                if vendor['emails']:
+                                    emails_display = ', '.join(vendor['emails'][:2])
+                                    if len(vendor['emails']) > 2:
+                                        emails_display += f" +{len(vendor['emails'])-2}"
+                                    st.text(emails_display)
+                                else:
+                                    st.text("Visit site")
+                            
+                            with col4:
+                                if st.button("➕", key=f"add_vendor_{i}", help="Add to contact list"):
+                                    contact_entry = {
+                                        'name': vendor['name'],
+                                        'url': vendor['url'],
+                                        'emails': vendor['emails'],
+                                        'type': 'vendor',
+                                        'part': part_name
+                                    }
+                                    
+                                    if not any(c['url'] == vendor['url'] for c in st.session_state.contact_list):
+                                        st.session_state.contact_list.append(contact_entry)
+                                        st.success(f"✓ Added {vendor['name']}")
+                                        st.rerun()
+                        
+                        # Detailed results in expander
+                        with st.expander("📄 View Detailed Results & Next Steps"):
+                            results_text = f"### VENDOR SEARCH RESULTS\n"
+                            results_text += f"**Part:** {part_name}\n"
+                            results_text += f"**Region:** {location}\n\n"
+                            
+                            for i, vendor in enumerate(vendor_results, 1):
+                                results_text += f"{i}. {vendor['url']}\n"
+                                if vendor['emails']:
+                                    results_text += f"   Contact: {', '.join(vendor['emails'])}\n"
+                                results_text += "\n"
+                            
+                            results_text += "\nNEXT STEPS:\n"
+                            results_text += "1. Visit vendor websites\n"
+                            results_text += "2. Request quotes from multiple vendors\n"
+                            results_text += "3. Compare prices and specifications\n"
+                            
+                            st.text_area("Results", results_text, height=300)
+                            
+                            st.download_button(
+                                label="Download Vendor List",
+                                data=results_text,
+                                file_name=f"vendors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                mime="text/plain"
+                            )
+                        
+                        # Store in session state
+                        st.session_state.recommended_vendors.append({
+                            'type': 'vendor',
+                            'part': part_name,
+                            'results': results_text,
+                            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        })
+                        
+                        # Download option
+                        st.download_button(
+                            label="Download Vendor List",
+                            data=results_text,
+                            file_name=f"vendors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                            mime="text/plain",
+                            use_container_width=True
+                        )
+                    
+                except Exception as e:
+                    st.error(f"Search failed: {str(e)}")
+                    st.info("Try using Email Search tab to search specific vendor websites directly.")
+    
+    # Display previous vendor search results if available
+    if 'last_vendor_search' in st.session_state and st.session_state.last_vendor_search:
+        st.markdown("---")
+        st.markdown("### 📋 Previous Vendor Results")
+        
+        vendor_results = st.session_state.last_vendor_search
+        
+        col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+        with col1:
+            st.markdown("**#**")
+        with col2:
+            st.markdown("**Vendor**")
+        with col3:
+            st.markdown("**Contact**")
+        with col4:
+            st.markdown("**Action**")
+        
+        st.markdown("---")
+        
+        for i, vendor in enumerate(vendor_results, 1):
+            col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+            
+            with col1:
+                st.text(f"{i}")
+            
+            with col2:
+                st.markdown(f"[{vendor['name']}]({vendor['url']})")
+            
+            with col3:
+                if vendor['emails']:
+                    emails_display = ', '.join(vendor['emails'][:2])
+                    if len(vendor['emails']) > 2:
+                        emails_display += f" +{len(vendor['emails'])-2}"
+                    st.text(emails_display)
+                else:
+                    st.text("Visit site")
+            
+            with col4:
+                if st.button("➕", key=f"add_prev_vendor_{i}", help="Add to contact list"):
+                    contact_entry = {
+                        'name': vendor['name'],
+                        'url': vendor['url'],
+                        'emails': vendor['emails'],
+                        'type': 'vendor',
+                        'part': vendor.get('part', 'N/A')
+                    }
+                    
+                    if not any(c['url'] == vendor['url'] for c in st.session_state.contact_list):
+                        st.session_state.contact_list.append(contact_entry)
+                        st.success(f"✓ Added {vendor['name']} to Email Center!")
+                        time.sleep(1)  # Show message briefly
+
+elif page == "Email Center":
+    st.markdown('<p class="main-header">Email Center</p>', unsafe_allow_html=True)
+    
+    if not st.session_state.contact_list:
+        st.info("No contacts in your list yet. Add companies from Real Sponsors or Vendor Search.")
+    else:
+        st.success(f"You have {len(st.session_state.contact_list)} contacts in your list")
+        
+        # Display contact list
+        st.markdown("### Your Contact List")
+        
+        # Filter options
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            filter_type = st.selectbox("Filter by type", ["All", "Sponsors", "Vendors"])
+        with col2:
+            if st.button("Clear Contact List", use_container_width=True):
+                st.session_state.contact_list.clear()
+                st.rerun()
+        
+        # Filter contacts
+        filtered_contacts = st.session_state.contact_list
+        if filter_type == "Sponsors":
+            filtered_contacts = [c for c in st.session_state.contact_list if c['type'] == 'sponsor']
+        elif filter_type == "Vendors":
+            filtered_contacts = [c for c in st.session_state.contact_list if c['type'] == 'vendor']
+        
+        st.markdown("---")
+        
+        # Display contacts and create emails
+        for i, contact in enumerate(filtered_contacts):
+            with st.expander(f"📧 {contact['name']} ({contact['type'].title()}) - {len(contact['emails'])} email(s)"):
+                col1, col2 = st.columns([2, 1])
                 
-                st.markdown(f"""
-### VENDOR SEARCH RESULTS
-**Part/Product:** {part_name}  
-**Region:** {country}  
-**Price Range:** {price_range}
+                with col1:
+                    st.markdown(f"**Website:** {contact['url']}")
+                    if contact['emails']:
+                        st.markdown(f"**Emails:** {', '.join(contact['emails'])}")
+                    else:
+                        st.warning("No emails found for this contact")
+                    
+                    if contact['type'] == 'sponsor':
+                        st.markdown(f"**Project:** {contact.get('project', 'N/A')}")
+                    else:
+                        st.markdown(f"**Part:** {contact.get('part', 'N/A')}")
+                
+                with col2:
+                    if st.button("Create Email", key=f"create_email_{i}"):
+                        st.session_state.selected_contact = contact
+                        st.session_state.show_email_composer = True
+                        st.rerun()
+                    
+                    if st.button("Remove", key=f"remove_contact_{i}"):
+                        st.session_state.contact_list.remove(contact)
+                        st.rerun()
+        
+        # Email composer
+        if 'show_email_composer' in st.session_state and st.session_state.show_email_composer:
+            st.markdown("---")
+            st.markdown("### 📝 Compose Email")
+            
+            contact = st.session_state.selected_contact
+            
+            # Initialize show_action_buttons
+            show_action_buttons = False
+            
+            # Email generation mode selection
+            generation_mode = st.radio(
+                "Email Generation Method",
+                ["🤖 AI Generate (ChatGPT)", "📋 Use Template"],
+                horizontal=True
+            )
+            
+            # Email details (common for both modes)
+            col1, col2 = st.columns(2)
+            with col1:
+                recipient = st.selectbox("Recipient Email", contact['emails'] if contact['emails'] else ["No emails available"])
+                your_name = st.text_input("Your Name", placeholder="Your name/organization")
+            with col2:
+                subject_custom = st.text_input("Custom Subject (optional)", placeholder="Leave blank for AI/template default")
+                project_name = st.text_input("Project/Part Name", 
+                                            value=contact.get('project', contact.get('part', '')))
+            
+            amount = st.text_input("Amount/Details", placeholder="$5,000 or specific requirements")
+            
+            # AI Generation Mode
+            if generation_mode == "🤖 AI Generate (ChatGPT)":
+                st.markdown("#### AI Email Generation")
+                
+                if not st.session_state.openai_enabled:
+                    st.error("OpenAI API key not configured. Please add it to use AI generation.")
+                    generation_mode = "📋 Use Template"  # Fall back to template
+                else:
+                    # AI-specific options
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        tone = st.selectbox("Email Tone", ["Professional", "Friendly", "Formal", "Casual", "Persuasive"])
+                        length = st.selectbox("Email Length", ["Short", "Medium", "Long"])
+                    with col2:
+                        use_template_as_reference = st.checkbox("Reference saved template in AI prompt", value=False)
+                        reference_template = None
+                        if use_template_as_reference and st.session_state.saved_email_templates:
+                            template_names = [t['name'] for t in st.session_state.saved_email_templates]
+                            selected_template_name = st.selectbox("Select Template to Reference", template_names)
+                            reference_template = next((t for t in st.session_state.saved_email_templates if t['name'] == selected_template_name), None)
+                    
+                    additional_notes = st.text_area("Additional Instructions for AI", 
+                                                   placeholder="e.g., Emphasize our team's experience, mention previous successful projects, etc.")
+                    
+                    if st.button("🤖 Generate Email with AI", type="primary"):
+                        with st.spinner("AI is crafting your email..."):
+                            try:
+                                # Build AI prompt
+                                contact_type = "sponsor" if contact['type'] == 'sponsor' else "vendor"
+                                
+                                prompt = f"""Write a {tone.lower()} {length.lower()} business email to {contact['name']}.
 
-#### SEARCH STRATEGY:
-Using multiple search approaches:
-- Direct supplier searches
-- Distributor networks
-- Manufacturer databases
-- E-commerce platforms
-- Industry directories
+CONTEXT:
+- Purpose: {"Request sponsorship for" if contact['type'] == 'sponsor' else "Inquire about purchasing"} {project_name}
+- Recipient: {contact['name']} ({contact_type})
+- Sender: {your_name}
+- Amount/Budget: {amount}
+- Additional context: {additional_notes}
 
-#### RECOMMENDED VENDORS:
+REQUIREMENTS:
+- Tone: {tone}
+- Length: {length}
+- Include a clear call-to-action
+- Professional formatting with proper greeting and signature
+"""
+                                
+                                if reference_template:
+                                    prompt += f"""\n\nIMPORTANT - Use this template as your base structure and style guide:
 
-**1. DIRECT MANUFACTURERS:**
-- Search for "{part_name} manufacturer {country}"
-- Check industry trade associations
-- Look for ISO certified suppliers
+TEMPLATE TO FOLLOW:
+Subject: {reference_template['subject']}
 
-**2. DISTRIBUTORS & RESELLERS:**
-- Major distributors (Digi-Key, Mouser, McMaster-Carr)
-- Regional suppliers in {country}
-- Specialized industry distributors
+{reference_template['body']}
 
-**3. E-COMMERCE PLATFORMS:**
-- Amazon Business (industrial supplies)
-- Alibaba (bulk/wholesale)
-- ThomasNet (industrial suppliers)
-- Local B2B marketplaces
+Adapt this template's structure, style, and tone to fit the current context. Replace placeholders with actual details about {contact['name']} and {project_name}."""
+                                
+                                if contact['type'] == 'sponsor':
+                                    prompt += "\n\nKey points to emphasize:\n- Mutual benefits and ROI\n- Exposure opportunities\n- Brand alignment and values\n- Specific deliverables"
+                                else:
+                                    prompt += "\n\nKey points to emphasize:\n- Specific product requirements\n- Timeline and delivery needs\n- Budget constraints\n- Request for quotes and technical specs"
+                                
+                                prompt += "\n\nReturn ONLY the email body, no subject line, no metadata."
+                                
+                                response = st.session_state.openai_client.chat.completions.create(
+                                    model=OPENAI_MODEL,
+                                    messages=[
+                                        {"role": "system", "content": "You are a professional business email writer. Write clear, compelling emails that get responses."},
+                                        {"role": "user", "content": prompt}
+                                    ],
+                                    max_tokens=800,
+                                    temperature=0.7
+                                )
+                                
+                                ai_email_body = response.choices[0].message.content
+                                
+                                # Generate subject if not provided
+                                if not subject_custom:
+                                    subject_prompt = f"Write a compelling email subject line for: {contact_type} email to {contact['name']} about {project_name}. Return ONLY the subject line, no quotes or extra text."
+                                    subject_response = st.session_state.openai_client.chat.completions.create(
+                                        model=OPENAI_MODEL,
+                                        messages=[
+                                            {"role": "system", "content": "You write compelling email subject lines."},
+                                            {"role": "user", "content": subject_prompt}
+                                        ],
+                                        max_tokens=50,
+                                        temperature=0.7
+                                    )
+                                    ai_subject = subject_response.choices[0].message.content.strip().strip('"').strip("'")
+                                else:
+                                    ai_subject = subject_custom
+                                
+                                # Store AI-generated content
+                                st.session_state.ai_generated_subject = ai_subject
+                                st.session_state.ai_generated_body = ai_email_body
+                                st.success("✨ AI email generated!")
+                                
+                            except Exception as e:
+                                st.error(f"AI generation failed: {str(e)}")
+                                if "quota" in str(e).lower() or "billing" in str(e).lower():
+                                    st.warning("Tip: Add credits to your OpenAI account at https://platform.openai.com/account/billing")
+                    
+                    # Display AI-generated email if available
+                    if 'ai_generated_subject' in st.session_state and 'ai_generated_body' in st.session_state:
+                        st.markdown("### 📧 AI Generated Email")
+                        st.text_input("To:", value=recipient, disabled=True)
+                        final_subject = st.text_input("Subject:", value=st.session_state.ai_generated_subject, key="ai_subject")
+                        final_body = st.text_area("Body:", value=st.session_state.ai_generated_body, height=400, key="ai_body")
+                        
+                        show_action_buttons = True
+                    else:
+                        show_action_buttons = False
+            
+            # Template Mode
+            else:  # "📋 Use Template"
+                # Email template selection
+                template_type = st.selectbox(
+                    "Select Template",
+                    ["Sponsorship Request", "Vendor Inquiry", "Partnership Proposal", 
+                     "Follow-up Email", "Thank You Email"] + 
+                    [f"Custom: {t['name']}" for t in st.session_state.saved_email_templates]
+                )
+                
+                additional_notes = st.text_area("Additional Notes (optional)", 
+                                              placeholder="Any custom details to include")
+                
+                # Generate email based on template
+                if contact['type'] == 'sponsor':
+                    default_subject = f"Sponsorship Partnership Opportunity - {project_name}"
+                    default_body = f"""Dear {contact['name']} Team,
 
-**4. INDUSTRY-SPECIFIC SOURCES:**
-- Trade show exhibitor lists
-- Professional association member directories
-- Industry publication supplier guides
-
-#### NEXT STEPS:
-1. Use the Email Search tab to find contacts at these companies
-2. Cross-reference with your specific requirements
-3. Request quotes from multiple vendors
-4. Verify certifications and quality standards
-""")
-
-elif page == "Email Templates":
-    st.markdown('<p class="main-header">Email Template Creator</p>', unsafe_allow_html=True)
-    
-    # Template selection
-    template_type = st.selectbox(
-        "Email Type",
-        ["Sponsorship Request", "Vendor Inquiry", "Partnership Proposal", 
-         "Follow-up Email", "Thank You Email", "Custom Template"]
-    )
-    
-    # Template variables
-    col1, col2 = st.columns(2)
-    with col1:
-        company_name = st.text_input("Company Name", placeholder="Target company name")
-        project_name = st.text_input("Project Name", placeholder="Your project or product")
-    with col2:
-        your_name = st.text_input("Your Name", placeholder="Your name/organization")
-        amount = st.text_input("Amount/Details", placeholder="$5,000 or specific requirements")
-    
-    # Template content
-    templates = {
-        "Sponsorship Request": {
-            "subject": "Sponsorship Partnership Opportunity - [PROJECT_NAME]",
-            "body": """Dear [COMPANY_NAME] Team,
-
-I hope this email finds you well. My name is [YOUR_NAME], and I'm reaching out regarding an exciting sponsorship opportunity that aligns perfectly with [COMPANY_NAME]'s commitment to innovation and community.
+I hope this email finds you well. My name is {your_name}, and I'm reaching out regarding an exciting sponsorship opportunity that aligns perfectly with {contact['name']}'s commitment to innovation and community.
 
 ABOUT OUR PROJECT:
-[PROJECT_NAME] is an innovative initiative that we believe would provide [COMPANY_NAME] with valuable exposure to our target audience.
+{project_name} is an innovative initiative that we believe would provide {contact['name']} with valuable exposure to our target audience.
 
 SPONSORSHIP DETAILS:
-• Investment Level: [AMOUNT]
+• Investment Level: {amount}
 • Expected Reach: Significant market exposure
 • Deliverables: Brand visibility and engagement
 
@@ -574,72 +1231,247 @@ MUTUAL BENEFITS:
 • Association with innovation and excellence
 • Community engagement opportunities
 
-We would love to discuss this opportunity further and provide additional details about how [COMPANY_NAME] can be involved.
+{additional_notes}
+
+We would love to discuss this opportunity further and provide additional details about how {contact['name']} can be involved.
 
 Thank you for considering our proposal. I look forward to hearing from you.
 
 Best regards,
-[YOUR_NAME]"""
-        },
-        "Vendor Inquiry": {
-            "subject": "Product Inquiry - [PROJECT_NAME]",
-            "body": """Dear [COMPANY_NAME] Sales Team,
+{your_name}"""
+                else:  # vendor
+                    default_subject = f"Product Inquiry - {project_name}"
+                    default_body = f"""Dear {contact['name']} Sales Team,
 
-I hope this message finds you well. I'm [YOUR_NAME], and I'm interested in learning more about your products/services for [PROJECT_NAME].
+I hope this message finds you well. I'm {your_name}, and I'm interested in learning more about your products/services for {project_name}.
 
 PROJECT REQUIREMENTS:
-• Product needed: [PROJECT_NAME]
-• Budget range: [AMOUNT]
+• Product needed: {project_name}
+• Budget range: {amount}
 • Timeline: As soon as possible
 
 QUESTIONS:
-• Do you have [PROJECT_NAME] currently in stock?
+• Do you have {project_name} currently in stock?
 • What are your current pricing and lead times?
 • Do you offer bulk/volume discounts?
 • Can you provide technical specifications?
+
+{additional_notes}
 
 We're evaluating several suppliers and would appreciate receiving product information and pricing details.
 
 Thank you for your time. I look forward to your response.
 
 Best regards,
-[YOUR_NAME]"""
-        }
+{your_name}"""
+                
+                subject_line = subject_custom if subject_custom else default_subject
+                email_body = default_body
+                
+                # Display email preview
+                st.markdown("### 📧 Email Preview")
+                st.text_input("To:", value=recipient, disabled=True)
+                final_subject = st.text_input("Subject:", value=subject_line, key="template_subject")
+                final_body = st.text_area("Body:", value=email_body, height=400, key="template_body")
+                
+                show_action_buttons = True
+            
+            # Action buttons (only show if email is ready)
+            if show_action_buttons:
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if st.button("Add to Drafted Emails", type="primary", use_container_width=True):
+                        drafted_email = {
+                            'to': recipient,
+                            'subject': final_subject,
+                            'body': final_body,
+                            'company': contact['name'],
+                            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        st.session_state.drafted_emails.append(drafted_email)
+                        
+                        # Clear AI generation cache
+                        if 'ai_generated_subject' in st.session_state:
+                            del st.session_state.ai_generated_subject
+                        if 'ai_generated_body' in st.session_state:
+                            del st.session_state.ai_generated_body
+                        
+                        st.success(f"Email added to drafted emails! ({len(st.session_state.drafted_emails)} total)")
+                
+                with col2:
+                    if st.button("Save as Template", use_container_width=True):
+                        st.session_state.show_save_template = True
+                
+                with col3:
+                    if st.button("Cancel", use_container_width=True):
+                        st.session_state.show_email_composer = False
+                        if 'selected_contact' in st.session_state:
+                            del st.session_state.selected_contact
+                        if 'ai_generated_subject' in st.session_state:
+                            del st.session_state.ai_generated_subject
+                        if 'ai_generated_body' in st.session_state:
+                            del st.session_state.ai_generated_body
+                        st.rerun()
+            
+            # Save template dialog
+            if 'show_save_template' in st.session_state and st.session_state.show_save_template:
+                template_name = st.text_input("Template Name", placeholder="e.g., My Custom Sponsorship Email")
+                if st.button("Save Template"):
+                    new_template = {
+                        'name': template_name,
+                        'subject': final_subject,
+                        'body': final_body
+                    }
+                    st.session_state.saved_email_templates.append(new_template)
+                    st.session_state.show_save_template = False
+                    st.success("Template saved!")
+                    st.rerun()
+    
+    # Show drafted emails section
+    if st.session_state.drafted_emails:
+        st.markdown("---")
+        st.markdown(f"### 📨 Drafted Emails ({len(st.session_state.drafted_emails)})")
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.info("These are all the emails you've created in this session")
+        with col2:
+            if st.button("Clear Drafted Emails", use_container_width=True):
+                st.session_state.drafted_emails.clear()
+                st.rerun()
+        
+        # Display drafted emails
+        for i, email in enumerate(st.session_state.drafted_emails):
+            with st.expander(f"Email {i+1}: {email['company']} - {email['timestamp']}"):
+                st.markdown(f"**To:** {email['to']}")
+                st.markdown(f"**Subject:** {email['subject']}")
+                st.text_area("Body:", value=email['body'], height=200, key=f"drafted_{i}", disabled=True)
+        
+        # Export all drafted emails
+        all_emails_text = ""
+        for i, email in enumerate(st.session_state.drafted_emails, 1):
+            all_emails_text += f"{'='*60}\n"
+            all_emails_text += f"EMAIL {i} - {email['company']}\n"
+            all_emails_text += f"{'='*60}\n"
+            all_emails_text += f"To: {email['to']}\n"
+            all_emails_text += f"Subject: {email['subject']}\n"
+            all_emails_text += f"Created: {email['timestamp']}\n\n"
+            all_emails_text += f"{email['body']}\n\n"
+        
+        st.download_button(
+            label="📥 Download All Drafted Emails as TXT",
+            data=all_emails_text,
+            file_name=f"drafted_emails_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+elif page == "Email Templates":
+    st.markdown('<p class="main-header">Email Template Manager</p>', unsafe_allow_html=True)
+    
+    # Show saved custom templates
+    st.markdown("### 📚 Your Saved Templates")
+    
+    if not st.session_state.saved_email_templates:
+        st.info("No custom templates saved yet. Create emails in Email Center and save them as templates!")
+    else:
+        st.success(f"You have {len(st.session_state.saved_email_templates)} saved template(s)")
+        
+        for i, template in enumerate(st.session_state.saved_email_templates):
+            with st.expander(f"📄 {template['name']}"):
+                st.markdown(f"**Subject:** {template['subject']}")
+                st.text_area("Body:", value=template['body'], height=300, key=f"template_view_{i}", disabled=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    # Download this template
+                    template_text = f"Subject: {template['subject']}\n\n{template['body']}"
+                    st.download_button(
+                        label="Download Template",
+                        data=template_text,
+                        file_name=f"{template['name']}.txt",
+                        mime="text/plain",
+                        key=f"download_template_{i}"
+                    )
+                with col2:
+                    if st.button("Delete Template", key=f"delete_template_{i}"):
+                        st.session_state.saved_email_templates.pop(i)
+                        st.rerun()
+    
+    st.markdown("---")
+    st.markdown("### 📝 Create New Template")
+    
+    # Template creation form
+    new_template_name = st.text_input("Template Name", placeholder="e.g., My Custom Sponsorship Request")
+    new_template_subject = st.text_input("Email Subject", placeholder="Subject line template")
+    new_template_body = st.text_area("Email Body", height=300, 
+                                    placeholder="You can use placeholders like {COMPANY_NAME}, {YOUR_NAME}, {PROJECT_NAME}, {AMOUNT}")
+    
+    if st.button("Save New Template", type="primary"):
+        if new_template_name and new_template_subject and new_template_body:
+            new_template = {
+                'name': new_template_name,
+                'subject': new_template_subject,
+                'body': new_template_body
+            }
+            st.session_state.saved_email_templates.append(new_template)
+            st.success(f"Template '{new_template_name}' saved!")
+            st.rerun()
+        else:
+            st.error("Please fill in all fields")
+    
+    st.markdown("---")
+    st.markdown("### 📋 Default Templates")
+    st.info("These are built-in templates you can use as starting points")
+    
+    default_templates = {
+        "Sponsorship Request": """Dear {COMPANY_NAME} Team,
+
+I hope this email finds you well. My name is {YOUR_NAME}, and I'm reaching out regarding an exciting sponsorship opportunity.
+
+ABOUT OUR PROJECT:
+{PROJECT_NAME} is an innovative initiative that we believe would provide {COMPANY_NAME} with valuable exposure.
+
+SPONSORSHIP DETAILS:
+• Investment Level: {AMOUNT}
+• Expected Reach: Significant market exposure
+• Deliverables: Brand visibility and engagement
+
+We would love to discuss this opportunity further.
+
+Best regards,
+{YOUR_NAME}""",
+        
+        "Vendor Inquiry": """Dear {COMPANY_NAME} Sales Team,
+
+I'm {YOUR_NAME}, and I'm interested in your products/services for {PROJECT_NAME}.
+
+PROJECT REQUIREMENTS:
+• Product needed: {PROJECT_NAME}
+• Budget range: {AMOUNT}
+• Timeline: As soon as possible
+
+Please provide pricing and availability information.
+
+Thank you,
+{YOUR_NAME}""",
+        
+        "Partnership Proposal": """Dear {COMPANY_NAME} Team,
+
+I'm reaching out to explore a potential partnership between {YOUR_NAME} and {COMPANY_NAME}.
+
+PARTNERSHIP OPPORTUNITY:
+{PROJECT_NAME} represents a unique opportunity for collaboration.
+
+I'd welcome the chance to discuss how we can work together.
+
+Best regards,
+{YOUR_NAME}"""
     }
     
-    template = templates.get(template_type, templates["Sponsorship Request"])
-    
-    # Replace variables
-    subject = template["subject"]
-    body = template["body"]
-    
-    if company_name:
-        subject = subject.replace("[COMPANY_NAME]", company_name)
-        body = body.replace("[COMPANY_NAME]", company_name)
-    if your_name:
-        subject = subject.replace("[YOUR_NAME]", your_name)
-        body = body.replace("[YOUR_NAME]", your_name)
-    if project_name:
-        subject = subject.replace("[PROJECT_NAME]", project_name)
-        body = body.replace("[PROJECT_NAME]", project_name)
-    if amount:
-        body = body.replace("[AMOUNT]", amount)
-    
-    body = body.replace("[DATE]", datetime.now().strftime("%B %d, %Y"))
-    
-    # Display template
-    st.markdown("### Email Preview:")
-    st.text_input("Subject:", value=subject, key="subject_preview")
-    st.text_area("Body:", value=body, height=400, key="body_preview")
-    
-    # Copy button
-    full_email = f"Subject: {subject}\n\n{body}"
-    st.download_button(
-        label="Download Email",
-        data=full_email,
-        file_name=f"email_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-        mime="text/plain"
-    )
+    for name, body in default_templates.items():
+        with st.expander(f"📄 {name}"):
+            st.text_area("Template:", value=body, height=250, key=f"default_{name}", disabled=True)
 
 elif page == "Company Database":
     st.markdown('<p class="main-header">Company Database</p>', unsafe_allow_html=True)
