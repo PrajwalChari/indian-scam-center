@@ -583,16 +583,37 @@ elif page == "Real Sponsors":
                                 
                                 found_in_iteration = 0
                                 
-                                # DuckDuckGo results
-                                for result in soup.find_all('a', class_='result__url'):
+                                # DuckDuckGo results - try multiple selectors
+                                # Try result__a (newer DuckDuckGo)
+                                for result in soup.find_all('a', class_='result__a'):
                                     url = result.get('href', '')
                                     if url.startswith('http'):
                                         domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                        if not any(skip in domain.lower() for skip in skip_domains):
+                                        if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
                                             all_company_urls.add(f"https://{domain}")
                                             found_in_iteration += 1
                                 
-                                # Generic fallback - extract all links
+                                # Try result__url (older DuckDuckGo)
+                                if found_in_iteration == 0:
+                                    for result in soup.find_all('a', class_='result__url'):
+                                        url = result.get('href', '')
+                                        if url.startswith('http'):
+                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                all_company_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
+                                
+                                # Try links-menu links
+                                if found_in_iteration == 0:
+                                    for result in soup.find_all('a', class_='result-link'):
+                                        url = result.get('href', '')
+                                        if url.startswith('http'):
+                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                all_company_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
+                                
+                                # Aggressive fallback - extract ALL links with good domains
                                 for link in soup.find_all('a', href=True):
                                     href = link['href']
                                     if href.startswith('http'):
@@ -970,8 +991,9 @@ elif page == "Vendor Search":
                                 
                                 found_in_iteration = 0
                                 
-                                # DuckDuckGo results
-                                for result in soup.find_all('a', class_='result__url'):
+                                # DuckDuckGo results - try multiple selectors
+                                # Try result__a (newer DuckDuckGo)
+                                for result in soup.find_all('a', class_='result__a'):
                                     url = result.get('href', '')
                                     if url.startswith('http'):
                                         domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
@@ -979,7 +1001,27 @@ elif page == "Vendor Search":
                                             all_vendor_urls.add(f"https://{domain}")
                                             found_in_iteration += 1
                                 
-                                # Generic fallback
+                                # Try result__url (older DuckDuckGo)
+                                if found_in_iteration == 0:
+                                    for result in soup.find_all('a', class_='result__url'):
+                                        url = result.get('href', '')
+                                        if url.startswith('http'):
+                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                all_vendor_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
+                                
+                                # Try links-menu links
+                                if found_in_iteration == 0:
+                                    for result in soup.find_all('a', class_='result-link'):
+                                        url = result.get('href', '')
+                                        if url.startswith('http'):
+                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                all_vendor_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
+                                
+                                # Aggressive fallback
                                 for link in soup.find_all('a', href=True):
                                     href = link['href']
                                     if href.startswith('http'):
