@@ -21,7 +21,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gpt-3.5-turbo"
 
 # ScraperAPI Configuration - Use environment variable for security  
-SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "d199dd654e213de081c185f78bbb5f76")
+# Get your free API key at https://scraperapi.com (1000 requests/month free)
+SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "")
 
 # Page configuration
 st.set_page_config(
@@ -220,13 +221,13 @@ st.sidebar.markdown("---")
 if 'show_wolf' not in st.session_state:
     st.session_state.show_wolf = False
 
-if st.sidebar.button("[*]", key="hidden_wolf_btn", help="Briefcase", use_container_width=False):
+if st.sidebar.button("💰", key="hidden_wolf_btn", help="Briefcase", use_container_width=False):
     st.session_state.show_wolf = not st.session_state.show_wolf
 
 if st.session_state.show_wolf:
     st.sidebar.markdown("""
     <div style="text-align: center; margin-top: 1rem;">
-        <img src="https://media.giphy.com/media/n59dQcO9yaaaY/giphy.gif" 
+        <img src="https://tse1.mm.bing.net/th/id/OIP.hXj0g1I0Fw1n0xBDlkgFMAHaDL?rs=1&pid=ImgDetMain&o=7&rm=3" 
              style="max-width: 100%; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);"
              alt="Wolf of Wall Street">
         <p style="color: #3b8ed0; font-style: italic; margin-top: 0.5rem; font-size: 0.8rem;">
@@ -255,9 +256,28 @@ else:
     st.sidebar.error("AI Assistant: Not Configured")
 
 if SCRAPER_API_KEY:
-    st.sidebar.success("ScraperAPI: Connected")
+    st.sidebar.success("ScraperAPI: ✅ Active")
 else:
-    st.sidebar.warning("ScraperAPI: Not Configured (may get blocked)")
+    st.sidebar.error("⚠️ ScraperAPI: Not Configured")
+    with st.sidebar.expander("Setup ScraperAPI"):
+        st.markdown("""
+**Why you need it:**
+Bypasses search engine blocking when deployed
+
+**Setup (Free):**
+1. Visit [scraperapi.com](https://scraperapi.com)
+2. Sign up (1000 free requests/month)
+3. Copy your API key
+4. Set environment variable:
+   ```bash
+   # Windows
+   set SCRAPER_API_KEY=your_key_here
+   
+   # Linux/Mac
+   export SCRAPER_API_KEY=your_key_here
+   ```
+5. Or set in deployment platform (Streamlit Cloud, Heroku, etc.)
+        """)
 
 # Get database statistics
 db_stats = db.get_statistics()
@@ -494,78 +514,104 @@ elif page == "Real Sponsors":
                     
                     st.info(f"Searching for: {project} {industry_part}in {location}")
                     
+                    # Show ScraperAPI status
+                    if SCRAPER_API_KEY:
+                        st.success("🔧 Using ScraperAPI to bypass blocking")
+                    else:
+                        st.warning("⚠️ No ScraperAPI - may get blocked by search engines")
+                    
                     # Initialize searcher with faster settings
                     searcher = EmailSearcher(max_pages=2, delay=0.5, scraper_api_key=SCRAPER_API_KEY)
                     
                     all_company_urls = set()
                     
-                    # Try DuckDuckGo search (more scraping-friendly)
-                    for query in base_queries[:2]:  # Use first 2 queries
-                        search_url = f"https://html.duckduckgo.com/html/?q={query.replace(' ', '+')}"
-                        
-                        search_content = searcher.get_page_content(search_url)
-                        
-                        if search_content:
-                            from bs4 import BeautifulSoup
-                            soup = BeautifulSoup(search_content, 'html.parser')
-                            
-                            # Extract URLs from DuckDuckGo results with better filtering
-                            for result in soup.find_all('a', class_='result__url'):
-                                url = result.get('href', '')
-                                if url.startswith('http'):
-                                    # Clean the URL - keep only base domain
-                                    clean_url = url.split('?')[0].split('#')[0]
-                                    domain = clean_url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
-                                    
-                                    # Filter out search engines and irrelevant sites
-                                    skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
-                                                   'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon']
-                                    if not any(skip in domain.lower() for skip in skip_domains):
-                                        # Add base URL only (homepage)
-                                        base_url = f"https://{domain}"
-                                        all_company_urls.add(base_url)
-                            
-                            # Also try result links (backup method)
-                            for link in soup.find_all('a', href=True):
-                                href = link['href']
-                                if href.startswith('http'):
-                                    domain = href.replace('https://', '').replace('http://', '').replace('www.', '').split('?')[0].split('/')[0]
-                                    skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter',
-                                                   'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon']
-                                    if not any(skip in domain.lower() for skip in skip_domains):
-                                        base_url = f"https://{domain}"
-                                        all_company_urls.add(base_url)
+                    # Try multiple search engines with ScraperAPI
+                    search_engines = [
+                        ("Google", f"https://www.google.com/search?q={{}}&num=20"),
+                        ("Bing", f"https://www.bing.com/search?q={{}}"),
+                        ("DuckDuckGo", f"https://html.duckduckgo.com/html/?q={{}}")
+                    ]
                     
-                    # If no results, try manual company list approach
-                    if not all_company_urls:
-                        st.warning("Search engines blocking requests. Using alternative approach...")
-                        
-                        # Manual fallback: construct likely company website patterns
-                        keywords = project.lower().split()[:3]  # Use first 3 words
-                        industry_keywords = industry.lower().split()[:2] if industry else []
-                        
-                        all_keywords = keywords + industry_keywords
-                        
-                        st.info(f"Searching for companies related to: {', '.join(all_keywords)}")
-                        
-                        # Direct company domain search
-                        for keyword in all_keywords[:3]:
-                            # Try common company website patterns
-                            potential_urls = [
-                                f"https://www.{keyword}.com",
-                                f"https://www.{keyword}.ca",
-                                f"https://{keyword}.com",
-                                f"https://{keyword}.ca"
-                            ]
+                    for engine_name, engine_url_template in search_engines:
+                        for query in base_queries[:2]:  # Use first 2 queries
+                            search_url = engine_url_template.format(query.replace(' ', '+'))
                             
-                            for url in potential_urls:
+                            # Use ScraperAPI directly if available
+                            if SCRAPER_API_KEY and SCRAPER_API_KEY != "d199dd654e213de081c185f78bbb5f76":
+                                import urllib.parse
+                                encoded_url = urllib.parse.quote(search_url, safe='')
+                                scraper_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={encoded_url}&render=true"
                                 try:
-                                    test_content = searcher.get_page_content(url)
-                                    if test_content and len(test_content) > 1000:  # Valid website
-                                        all_company_urls.add(url)
-                                        st.success(f"Found: {url}")
+                                    import requests
+                                    response = requests.get(scraper_url, timeout=60)
+                                    search_content = response.text if response.status_code == 200 else None
                                 except:
-                                    pass
+                                    search_content = None
+                            else:
+                                # Direct request without ScraperAPI
+                                search_content = searcher.get_page_content(search_url)
+                        
+                            if search_content:
+                                from bs4 import BeautifulSoup
+                                soup = BeautifulSoup(search_content, 'html.parser')
+                                
+                                # Extract URLs based on search engine
+                                skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
+                                               'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'instagram']
+                                
+                                # Google results
+                                if engine_name == "Google":
+                                    for result in soup.find_all('div', class_='g'):
+                                        link = result.find('a', href=True)
+                                        if link and link['href'].startswith('http'):
+                                            domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains):
+                                                all_company_urls.add(f"https://{domain}")
+                                
+                                # Bing results
+                                elif engine_name == "Bing":
+                                    for result in soup.find_all('li', class_='b_algo'):
+                                        link = result.find('a', href=True)
+                                        if link and link['href'].startswith('http'):
+                                            domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains):
+                                                all_company_urls.add(f"https://{domain}")
+                                
+                                # DuckDuckGo results
+                                else:
+                                    for result in soup.find_all('a', class_='result__url'):
+                                        url = result.get('href', '')
+                                        if url.startswith('http'):
+                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains):
+                                                all_company_urls.add(f"https://{domain}")
+                                
+                                # Generic fallback - extract all links
+                                for link in soup.find_all('a', href=True):
+                                    href = link['href']
+                                    if href.startswith('http'):
+                                        domain = href.replace('https://', '').replace('http://', '').replace('www.', '').split('?')[0].split('/')[0]
+                                        if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                            all_company_urls.add(f"https://{domain}")
+                                
+                                # Break if we found enough results
+                                if len(all_company_urls) >= 10:
+                                    break
+                        
+                        # Break outer loop if we have enough
+                        if len(all_company_urls) >= 10:
+                            break
+                    
+                    # If still no results, show clear message
+                    if not all_company_urls:
+                        st.error("Unable to find companies through search engines.")
+                        st.info("""
+**Try these options:**
+1. Add your ScraperAPI key in the code (SCRAPER_API_KEY)
+2. Be more specific with project/industry names
+3. Use the Email Search tab to search specific company websites directly
+4. Contact companies you already know about
+                        """)
                     
                     # Remove duplicates, clean URLs, and limit
                     # Deduplicate by domain to avoid showing same site multiple times
@@ -840,74 +886,101 @@ elif page == "Vendor Search":
                     
                     st.info(f"Searching for: {part_name} vendors in {location}")
                     
+                    # Show ScraperAPI status
+                    if SCRAPER_API_KEY:
+                        st.success("🔧 Using ScraperAPI to bypass blocking")
+                    else:
+                        st.warning("⚠️ No ScraperAPI - may get blocked by search engines")
+                    
                     # Initialize searcher with faster settings
                     searcher = EmailSearcher(max_pages=2, delay=0.5, scraper_api_key=SCRAPER_API_KEY)
                     
                     all_vendor_urls = set()
                     
-                    # Try DuckDuckGo search
-                    for query in base_queries[:2]:  # Use first 2 queries
-                        search_url = f"https://html.duckduckgo.com/html/?q={query.replace(' ', '+')}"
-                        
-                        search_content = searcher.get_page_content(search_url)
-                        
-                        if search_content:
-                            from bs4 import BeautifulSoup
-                            soup = BeautifulSoup(search_content, 'html.parser')
-                            
-                            # Extract URLs from DuckDuckGo results with better filtering
-                            for result in soup.find_all('a', class_='result__url'):
-                                url = result.get('href', '')
-                                if url.startswith('http'):
-                                    # Clean the URL - keep only base domain
-                                    clean_url = url.split('?')[0].split('#')[0]
-                                    domain = clean_url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
-                                    
-                                    # Filter out search engines and irrelevant sites
-                                    skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
-                                                   'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'ebay']
-                                    if not any(skip in domain.lower() for skip in skip_domains):
-                                        # Add base URL only
-                                        base_url = f"https://{domain}"
-                                        all_vendor_urls.add(base_url)
-                            
-                            # Backup method for result links
-                            for link in soup.find_all('a', href=True):
-                                href = link['href']
-                                if href.startswith('http'):
-                                    domain = href.replace('https://', '').replace('http://', '').replace('www.', '').split('?')[0].split('/')[0]
-                                    skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter',
-                                                   'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'ebay']
-                                    if not any(skip in domain.lower() for skip in skip_domains):
-                                        base_url = f"https://{domain}"
-                                        all_vendor_urls.add(base_url)
+                    # Try multiple search engines with ScraperAPI
+                    search_engines = [
+                        ("Google", f"https://www.google.com/search?q={{}}&num=20"),
+                        ("Bing", f"https://www.bing.com/search?q={{}}"),
+                        ("DuckDuckGo", f"https://html.duckduckgo.com/html/?q={{}}")
+                    ]
                     
-                    # If no results, try alternative approach
-                    if not all_vendor_urls:
-                        st.warning("Search engines blocking requests. Trying alternative methods...")
-                        
-                        # Extract keywords from part name
-                        keywords = part_name.lower().replace('-', ' ').split()[:3]
-                        
-                        st.info(f"Searching for vendors related to: {', '.join(keywords)}")
-                        
-                        # Try common vendor/distributor patterns
-                        for keyword in keywords:
-                            potential_urls = [
-                                f"https://www.{keyword}.com",
-                                f"https://www.{keyword}supply.com",
-                                f"https://www.{keyword}direct.com",
-                                f"https://{keyword}.com"
-                            ]
+                    for engine_name, engine_url_template in search_engines:
+                        for query in base_queries[:2]:  # Use first 2 queries
+                            search_url = engine_url_template.format(query.replace(' ', '+'))
                             
-                            for url in potential_urls:
+                            # Use ScraperAPI directly if available
+                            if SCRAPER_API_KEY and SCRAPER_API_KEY != "d199dd654e213de081c185f78bbb5f76":
+                                import urllib.parse
+                                encoded_url = urllib.parse.quote(search_url, safe='')
+                                scraper_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={encoded_url}&render=true"
                                 try:
-                                    test_content = searcher.get_page_content(url)
-                                    if test_content and len(test_content) > 1000:
-                                        all_vendor_urls.add(url)
-                                        st.success(f"Found: {url}")
+                                    import requests
+                                    response = requests.get(scraper_url, timeout=60)
+                                    search_content = response.text if response.status_code == 200 else None
                                 except:
-                                    pass
+                                    search_content = None
+                            else:
+                                # Direct request without ScraperAPI
+                                search_content = searcher.get_page_content(search_url)
+                            
+                            if search_content:
+                                from bs4 import BeautifulSoup
+                                soup = BeautifulSoup(search_content, 'html.parser')
+                                
+                                skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
+                                               'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'ebay', 'instagram']
+                                
+                                # Google results
+                                if engine_name == "Google":
+                                    for result in soup.find_all('div', class_='g'):
+                                        link = result.find('a', href=True)
+                                        if link and link['href'].startswith('http'):
+                                            domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                all_vendor_urls.add(f"https://{domain}")
+                                
+                                # Bing results
+                                elif engine_name == "Bing":
+                                    for result in soup.find_all('li', class_='b_algo'):
+                                        link = result.find('a', href=True)
+                                        if link and link['href'].startswith('http'):
+                                            domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                all_vendor_urls.add(f"https://{domain}")
+                                
+                                # DuckDuckGo results
+                                else:
+                                    for result in soup.find_all('a', class_='result__url'):
+                                        url = result.get('href', '')
+                                        if url.startswith('http'):
+                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                all_vendor_urls.add(f"https://{domain}")
+                                
+                                # Generic fallback
+                                for link in soup.find_all('a', href=True):
+                                    href = link['href']
+                                    if href.startswith('http'):
+                                        domain = href.replace('https://', '').replace('http://', '').replace('www.', '').split('?')[0].split('/')[0]
+                                        if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                            all_vendor_urls.add(f"https://{domain}")
+                                
+                                if len(all_vendor_urls) >= 15:
+                                    break
+                        
+                        if len(all_vendor_urls) >= 15:
+                            break
+                    
+                    # If still no results after trying all engines
+                    if not all_vendor_urls:
+                        st.error("Unable to find vendors through search engines.")
+                        st.info("""
+**Try these options:**
+1. Add your ScraperAPI key (get free at scraperapi.com)
+2. Be more specific with part name and model number
+3. Use Email Search tab to search specific vendor websites
+4. Check the industry-specific distributors below
+                        """)
                     
                     # Add well-known distributors based on category
                     common_distributors = {
