@@ -582,18 +582,8 @@ elif page == "Real Sponsors":
                                 
                                 found_in_iteration = 0
                                 
-                                # Bing results
-                                if engine_name == "Bing":
-                                    for result in soup.find_all('li', class_='b_algo'):
-                                        link = result.find('a', href=True)
-                                        if link and link['href'].startswith('http'):
-                                            domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                            if not any(skip in domain.lower() for skip in skip_domains):
-                                                all_company_urls.add(f"https://{domain}")
-                                                found_in_iteration += 1
-                                
                                 # DuckDuckGo results
-                                else:
+                                if engine_name == "DuckDuckGo":
                                     for result in soup.find_all('a', class_='result__url'):
                                         url = result.get('href', '')
                                         if url.startswith('http'):
@@ -981,18 +971,8 @@ elif page == "Vendor Search":
                                 
                                 found_in_iteration = 0
                                 
-                                # Bing results
-                                if engine_name == "Bing":
-                                    for result in soup.find_all('li', class_='b_algo'):
-                                        link = result.find('a', href=True)
-                                        if link and link['href'].startswith('http'):
-                                            domain = link['href'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                                all_vendor_urls.add(f"https://{domain}")
-                                                found_in_iteration += 1
-                                
                                 # DuckDuckGo results
-                                else:
+                                if engine_name == "DuckDuckGo":
                                     for result in soup.find_all('a', class_='result__url'):
                                         url = result.get('href', '')
                                         if url.startswith('http'):
