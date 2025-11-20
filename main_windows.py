@@ -38,9 +38,10 @@ def safe_print(text):
         print(safe_text)
 
 class EmailSearcher:
-    def __init__(self, max_pages=10, delay=1):
+    def __init__(self, max_pages=10, delay=1, scraper_api_key=None):
         self.max_pages = max_pages
         self.delay = delay
+        self.scraper_api_key = scraper_api_key
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -67,7 +68,13 @@ class EmailSearcher:
     def get_page_content(self, url: str) -> Optional[str]:
         """Fetch and return the content of a web page."""
         try:
-            response = self.session.get(url, timeout=10, verify=False)
+            # Use ScraperAPI if key is available
+            if self.scraper_api_key:
+                scraper_url = f"http://api.scraperapi.com?api_key={self.scraper_api_key}&url={url}"
+                response = requests.get(scraper_url, timeout=60)
+            else:
+                response = self.session.get(url, timeout=10, verify=False)
+            
             response.raise_for_status()
             return response.text
         except requests.RequestException as e:

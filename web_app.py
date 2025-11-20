@@ -19,6 +19,9 @@ import time
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = "gpt-3.5-turbo"
 
+# ScraperAPI Configuration - Use environment variable for security
+SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "")
+
 # Page configuration
 st.set_page_config(
     page_title="Integrated Sponsor Center",
@@ -242,6 +245,11 @@ if st.session_state.openai_enabled:
 else:
     st.sidebar.error("AI Assistant: Not Configured")
 
+if SCRAPER_API_KEY:
+    st.sidebar.success("ScraperAPI: Connected")
+else:
+    st.sidebar.warning("ScraperAPI: Not Configured (may get blocked)")
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Statistics")
 st.sidebar.metric("Companies Found", len(st.session_state.found_companies))
@@ -350,7 +358,7 @@ elif page == "Email Search":
             
             with st.spinner(f"Searching {url} for email addresses..."):
                 try:
-                    searcher = EmailSearcher(max_pages=max_pages, delay=delay)
+                    searcher = EmailSearcher(max_pages=max_pages, delay=delay, scraper_api_key=SCRAPER_API_KEY)
                     emails = searcher.search_website_for_emails(url)
                     
                     if emails:
@@ -439,7 +447,7 @@ elif page == "Real Sponsors":
                     st.info(f"Searching for: {project} {industry_part}in {location}")
                     
                     # Initialize searcher with faster settings
-                    searcher = EmailSearcher(max_pages=2, delay=0.5)
+                    searcher = EmailSearcher(max_pages=2, delay=0.5, scraper_api_key=SCRAPER_API_KEY)
                     
                     all_company_urls = set()
                     
@@ -727,7 +735,7 @@ elif page == "Vendor Search":
                     st.info(f"Searching for: {part_name} vendors in {location}")
                     
                     # Initialize searcher with faster settings
-                    searcher = EmailSearcher(max_pages=2, delay=0.5)
+                    searcher = EmailSearcher(max_pages=2, delay=0.5, scraper_api_key=SCRAPER_API_KEY)
                     
                     all_vendor_urls = set()
                     
