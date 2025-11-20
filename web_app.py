@@ -24,39 +24,55 @@ OPENAI_MODEL = "gpt-3.5-turbo"
 # Get your free API key at https://scraperapi.com (1000 requests/month free)
 SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "")
 
+# Debug: Show what keys are loaded (only for local testing - remove in production)
+if SCRAPER_API_KEY:
+    print(f"✅ ScraperAPI Key loaded: {SCRAPER_API_KEY[:10]}...{SCRAPER_API_KEY[-4:]}")
+else:
+    print("❌ No ScraperAPI key found in environment")
+    
+if OPENAI_API_KEY:
+    print(f"✅ OpenAI Key loaded: {OPENAI_API_KEY[:10]}...{OPENAI_API_KEY[-4:]}")
+else:
+    print("❌ No OpenAI key found in environment")
+
 # Page configuration
 st.set_page_config(
     page_title="UBCO Aerospace - Sponsor Center",
-    page_icon="🚀",
+    page_icon="✈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Modern CSS with UBCO branding
+# Modern CSS with UBCO branding - v2.0
 st.markdown("""
 <style>
     /* Import modern font */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
-    /* Global styling */
+    /* Global styling - Force override */
     * {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
     }
     
     /* Main container */
     .stApp {
-        background: linear-gradient(135deg, #0a0e27 0%, #1a1d3a 100%);
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1d3a 100%) !important;
     }
     
     /* Sidebar styling */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #141824 0%, #1e2235 100%);
-        border-right: 1px solid rgba(59, 142, 208, 0.2);
+        background: linear-gradient(180deg, #141824 0%, #1e2235 100%) !important;
+        border-right: 1px solid rgba(59, 142, 208, 0.2) !important;
     }
     
     [data-testid="stSidebar"] .stMarkdown {
-        color: #e8eaed;
+        color: #e8eaed !important;
     }
+    
+    /* Hide default Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
     
     /* Main header with logo */
     .main-header {
@@ -239,14 +255,12 @@ st.markdown("""
 
 # Main header with UBCO branding
 st.markdown("""
-<div style="text-align: center; margin-bottom: 2rem;">
-    <div style="display: inline-flex; align-items: center; gap: 1.5rem; justify-content: center; margin-bottom: 1rem;">
-        <div style="font-size: 5rem;">🚀</div>
-        <div>
-            <div class="main-header">UBCO AEROSPACE</div>
-            <div class="sub-header">Integrated Sponsor Center</div>
-        </div>
+<div style="text-align: center; margin-bottom: 3rem; padding: 2rem 0; border-bottom: 2px solid rgba(59, 142, 208, 0.3);">
+    <div style="margin-bottom: 0.5rem;">
+        <span style="font-size: 2rem; color: #3b8ed0; font-weight: 700;">UBCO</span>
     </div>
+    <div class="main-header" style="margin-bottom: 0.5rem;">AEROSPACE</div>
+    <div class="sub-header">Integrated Sponsor Management System</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -305,10 +319,10 @@ if st.session_state.show_wolf:
 
 # Sidebar with modern branding
 st.sidebar.markdown("""
-<div style="text-align: center; margin-bottom: 2rem; padding: 1rem;">
-    <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">🚀</div>
-    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.8rem; font-weight: 800;">UBCO Aerospace</h2>
-    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 1rem; font-weight: 500;">Sponsor Management</p>
+<div style="text-align: center; margin-bottom: 2rem; padding: 1.5rem 1rem; border-bottom: 2px solid rgba(59, 142, 208, 0.2);">
+    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.4rem; font-weight: 700; letter-spacing: 0.1em;">UBCO</h2>
+    <h3 style="color: #5ba3e0; margin: 0.5rem 0 0 0; font-size: 1.8rem; font-weight: 800;">AEROSPACE</h3>
+    <p style="color: #9ca3af; margin: 0.75rem 0 0 0; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Sponsor Management</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -332,9 +346,10 @@ else:
     st.sidebar.error("AI Assistant: Not Configured")
 
 if SCRAPER_API_KEY:
-    st.sidebar.success("ScraperAPI: ✅ Active")
+    st.sidebar.success(f"ScraperAPI: ACTIVE")
+    st.sidebar.caption(f"Key: {SCRAPER_API_KEY[:8]}...{SCRAPER_API_KEY[-4:]}")
 else:
-    st.sidebar.error("⚠️ ScraperAPI: Not Configured")
+    st.sidebar.error("ScraperAPI: NOT CONFIGURED")
     with st.sidebar.expander("Setup ScraperAPI"):
         st.markdown("""
 **Why you need it:**
@@ -344,7 +359,10 @@ Bypasses search engine blocking when deployed
 1. Visit [scraperapi.com](https://scraperapi.com)
 2. Sign up (1000 free requests/month)
 3. Copy your API key
-4. Set environment variable:
+4. Add to Streamlit Cloud:
+   - Go to App Settings → Secrets
+   - Add: `SCRAPER_API_KEY = "your_key_here"`
+5. Or set locally:
    ```bash
    # Windows
    set SCRAPER_API_KEY=your_key_here
@@ -352,7 +370,6 @@ Bypasses search engine blocking when deployed
    # Linux/Mac
    export SCRAPER_API_KEY=your_key_here
    ```
-5. Or set in deployment platform (Streamlit Cloud, Heroku, etc.)
         """)
 
 # Get database statistics
@@ -368,7 +385,7 @@ st.sidebar.metric("Drafted Emails", db_stats['drafted_emails'])
 
 # Main Content
 if page == "Dashboard":
-    st.markdown('<h1 style="text-align: center; font-size: 3rem; margin-bottom: 2rem;">📊 Sponsor Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align: center; font-size: 2.5rem; margin-bottom: 2rem; font-weight: 700; color: #e8eaed;">SPONSOR DASHBOARD</h1>', unsafe_allow_html=True)
     
     # Stats from database
     col1, col2, col3, col4 = st.columns(4)
@@ -613,35 +630,52 @@ elif page == "Real Sponsors":
                     ]
                     
                     for engine_name, engine_url_template in search_engines:
-                        progress_text.info(f"🔍 Trying {engine_name}...")
+                        progress_text.info(f"Searching {engine_name}...")
                         
                         for query in base_queries[:2]:  # Use first 2 queries
                             search_url = engine_url_template.format(query.replace(' ', '+'))
                             
-                            search_status.text(f"Searching: {query}")
+                            search_status.text(f"Query: {query}")
                             
-                            # Use ScraperAPI directly if available
-                            if SCRAPER_API_KEY and SCRAPER_API_KEY != "d199dd654e213de081c185f78bbb5f76":
+                            # ALWAYS use ScraperAPI for Google and Bing (they block direct requests)
+                            if SCRAPER_API_KEY:
                                 import urllib.parse
+                                import requests
+                                
+                                # Encode URL properly for ScraperAPI
                                 encoded_url = urllib.parse.quote(search_url, safe='')
-                                scraper_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={encoded_url}&render=true"
+                                
+                                # Add render=false for faster results (HTML only, no JS rendering)
+                                scraper_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={encoded_url}"
+                                
                                 try:
-                                    search_status.text(f"⏳ Requesting via ScraperAPI... ({engine_name})")
-                                    import requests
-                                    response = requests.get(scraper_url, timeout=60)
+                                    search_status.text(f"Requesting {engine_name} via ScraperAPI...")
+                                    st.caption(f"Target: {search_url[:80]}...")
+                                    
+                                    response = requests.get(scraper_url, timeout=30)
+                                    
                                     if response.status_code == 200:
                                         search_content = response.text
-                                        search_status.text(f"✅ Got response from {engine_name}")
+                                        search_status.success(f"SUCCESS: Got {len(search_content):,} bytes from {engine_name}")
                                     else:
-                                        search_status.text(f"❌ {engine_name} returned status {response.status_code}")
+                                        error_msg = f"Status {response.status_code}"
+                                        if response.text:
+                                            error_msg += f": {response.text[:100]}"
+                                        search_status.error(f"ERROR: {engine_name} - {error_msg}")
+                                        st.warning(f"ScraperAPI returned error. Check your API key and credits.")
                                         search_content = None
+                                        
+                                except requests.exceptions.Timeout:
+                                    search_status.error(f"TIMEOUT: {engine_name} (>30s)")
+                                    search_content = None
                                 except Exception as e:
-                                    search_status.text(f"❌ {engine_name} failed: {str(e)[:50]}")
+                                    search_status.error(f"ERROR: {engine_name} - {str(e)[:80]}")
+                                    st.error(f"Request failed: {type(e).__name__}: {str(e)}")
                                     search_content = None
                             else:
-                                # Direct request without ScraperAPI
-                                search_status.text(f"⏳ Direct request to {engine_name}...")
-                                search_content = searcher.get_page_content(search_url)
+                                # No ScraperAPI - Google and Bing will be blocked
+                                search_status.warning(f"SKIPPED: {engine_name} (requires ScraperAPI)")
+                                search_content = None
                         
                             if search_content:
                                 from bs4 import BeautifulSoup
@@ -691,10 +725,10 @@ elif page == "Real Sponsors":
                                             found_in_iteration += 1
                                 
                                 if found_in_iteration > 0:
-                                    search_status.success(f"✅ Found {found_in_iteration} companies from {engine_name} (Total: {len(all_company_urls)})")
+                                    search_status.success(f"FOUND: {found_in_iteration} companies from {engine_name} (Total: {len(all_company_urls)})")
                                 else:
-                                    st.warning(f"⚠️ No results parsed from {engine_name} - check if page structure changed")
-                                    search_status.warning(f"⚠️ No results from {engine_name}")
+                                    st.warning(f"No results parsed from {engine_name} - check if page structure changed")
+                                    search_status.warning(f"NO RESULTS from {engine_name}")
                                 
                                 # Break if we found enough results
                                 if len(all_company_urls) >= 10:
@@ -1005,8 +1039,10 @@ elif page == "Vendor Search":
                     
                     all_vendor_urls = set()
                     
-                    # Try multiple search engines with ScraperAPI
+                    # Use multiple search engines for best results
                     search_engines = [
+                        ("Google", f"https://www.google.com/search?q={{}}&num=20"),
+                        ("Bing", f"https://www.bing.com/search?q={{}}"),
                         ("DuckDuckGo", f"https://lite.duckduckgo.com/lite/?q={{}}")
                     ]
                     
@@ -1019,30 +1055,41 @@ elif page == "Vendor Search":
                         for query in base_queries[:2]:  # Use first 2 queries
                             search_url = engine_url_template.format(query.replace(' ', '+'))
                             
-                            search_status.text(f"Searching: {query}")
+                            search_status.text(f"Query: {query}")
                             
-                            # Use ScraperAPI directly if available
-                            if SCRAPER_API_KEY and SCRAPER_API_KEY != "d199dd654e213de081c185f78bbb5f76":
+                            # ALWAYS use ScraperAPI for Google and Bing (they block direct requests)
+                            if SCRAPER_API_KEY:
                                 import urllib.parse
+                                import requests
+                                
                                 encoded_url = urllib.parse.quote(search_url, safe='')
-                                scraper_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={encoded_url}&render=true"
+                                scraper_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={encoded_url}"
+                                
                                 try:
-                                    search_status.text(f"⏳ Requesting via ScraperAPI... ({engine_name})")
-                                    import requests
-                                    response = requests.get(scraper_url, timeout=60)
+                                    search_status.text(f"Requesting {engine_name} via ScraperAPI...")
+                                    st.caption(f"Target: {search_url[:80]}...")
+                                    
+                                    response = requests.get(scraper_url, timeout=30)
+                                    
                                     if response.status_code == 200:
                                         search_content = response.text
-                                        search_status.text(f"✅ Got response from {engine_name}")
+                                        search_status.success(f"SUCCESS: Got {len(search_content):,} bytes from {engine_name}")
                                     else:
-                                        search_status.text(f"❌ {engine_name} returned status {response.status_code}")
+                                        error_msg = f"Status {response.status_code}"
+                                        if response.text:
+                                            error_msg += f": {response.text[:100]}"
+                                        search_status.error(f"ERROR: {engine_name} - {error_msg}")
+                                        st.warning(f"ScraperAPI error. Check API key and credits at scraperapi.com")
                                         search_content = None
+                                except requests.exceptions.Timeout:
+                                    search_status.error(f"TIMEOUT: {engine_name}")
+                                    search_content = None
                                 except Exception as e:
-                                    search_status.text(f"❌ {engine_name} failed: {str(e)[:50]}")
+                                    search_status.error(f"ERROR: {str(e)[:80]}")
                                     search_content = None
                             else:
-                                # Direct request without ScraperAPI
-                                search_status.text(f"⏳ Direct request to {engine_name}...")
-                                search_content = searcher.get_page_content(search_url)
+                                search_status.warning(f"SKIPPED: {engine_name} (requires ScraperAPI)")
+                                search_content = None
                             
                             if search_content:
                                 from bs4 import BeautifulSoup
