@@ -572,6 +572,10 @@ elif page == "Real Sponsors":
                                 
                                 search_status.text(f"🔍 Parsing {engine_name} results...")
                                 
+                                # Debug: Show snippet of received HTML
+                                with st.expander(f"Debug: {engine_name} HTML preview"):
+                                    st.code(search_content[:1000], language="html")
+                                
                                 # Extract URLs based on search engine
                                 skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
                                                'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'instagram']
@@ -610,6 +614,7 @@ elif page == "Real Sponsors":
                                 if found_in_iteration > 0:
                                     search_status.success(f"✅ Found {found_in_iteration} companies from {engine_name} (Total: {len(all_company_urls)})")
                                 else:
+                                    st.warning(f"⚠️ No results parsed from {engine_name} - check if page structure changed")
                                     search_status.warning(f"⚠️ No results from {engine_name}")
                                 
                                 # Break if we found enough results
@@ -967,6 +972,10 @@ elif page == "Vendor Search":
                                 
                                 search_status.text(f"🔍 Parsing {engine_name} results...")
                                 
+                                # Debug: Show snippet of received HTML
+                                with st.expander(f"Debug: {engine_name} HTML preview"):
+                                    st.code(search_content[:1000], language="html")
+                                
                                 skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
                                                'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'ebay', 'instagram']
                                 
@@ -1001,7 +1010,10 @@ elif page == "Vendor Search":
                                             all_vendor_urls.add(f"https://{domain}")
                                             found_in_iteration += 1
                                 
-                                search_status.success(f"✅ Found {found_in_iteration} companies from {engine_name}")
+                                if found_in_iteration > 0:
+                                    search_status.success(f"✅ Found {found_in_iteration} companies from {engine_name}")
+                                else:
+                                    st.warning(f"⚠️ No results parsed from {engine_name} - check if page structure changed")
                                 
                                 if len(all_vendor_urls) >= 15:
                                     progress_text.success(f"🎉 Collected {len(all_vendor_urls)} vendors!")
