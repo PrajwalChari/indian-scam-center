@@ -487,6 +487,52 @@ st.sidebar.metric("Vendors", db_stats['total_vendors'])
 st.sidebar.metric("Contacts", db_stats['total_contacts'])
 st.sidebar.metric("Drafted Emails", db_stats['drafted_emails'])
 
+# Add ScraperAPI test button
+if SCRAPER_API_KEY:
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ScraperAPI Test")
+    if st.sidebar.button("🧪 Test ScraperAPI", help="Test if ScraperAPI is working"):
+        with st.sidebar.status("Testing ScraperAPI...", expanded=True) as status:
+            try:
+                import requests
+                import urllib.parse
+                
+                st.write("🔍 Testing Google search...")
+                test_url = "https://www.google.com/search?q=test"
+                api_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={urllib.parse.quote(test_url)}"
+                
+                response = requests.get(api_url, timeout=15)
+                
+                if response.status_code == 200:
+                    st.write("✅ Status: 200 OK")
+                    st.write(f"📦 Response size: {len(response.content)} bytes")
+                    
+                    # Check if it's actual Google HTML
+                    content = response.text.lower()
+                    if 'google' in content or 'search' in content:
+                        st.write("✅ Google HTML detected")
+                        status.update(label="✅ ScraperAPI Working!", state="complete", expanded=False)
+                        st.sidebar.success("ScraperAPI is working correctly!")
+                    else:
+                        st.write("⚠️ Unexpected response content")
+                        status.update(label="⚠️ Check Response", state="error", expanded=True)
+                elif response.status_code == 401:
+                    st.write("❌ Invalid API Key")
+                    status.update(label="❌ Invalid Key", state="error", expanded=True)
+                elif response.status_code == 403:
+                    st.write("❌ Forbidden - Check account")
+                    status.update(label="❌ Forbidden", state="error", expanded=True)
+                else:
+                    st.write(f"❌ Status: {response.status_code}")
+                    status.update(label=f"❌ Error {response.status_code}", state="error", expanded=True)
+                    
+            except requests.exceptions.Timeout:
+                st.write("❌ Request timeout (15s)")
+                status.update(label="❌ Timeout", state="error", expanded=True)
+            except Exception as e:
+                st.write(f"❌ Error: {str(e)}")
+                status.update(label="❌ Test Failed", state="error", expanded=True)
+
 # Main Content
 if page == "Dashboard":
     st.markdown('<h1 style="text-align: center; font-size: 1.8rem; margin-bottom: 1.5rem; font-weight: 700; color: #e8eaed;">SPONSOR DASHBOARD</h1>', unsafe_allow_html=True)
@@ -585,6 +631,7 @@ elif page == "Email Search":
             if not url.startswith(('http://', 'https://')):
                 url = 'https://' + url
             
+            st.warning("Search in progress - DO NOT switch pages or the search will be cancelled!")
             with st.spinner(f"Searching {url} for email addresses..."):
                 try:
                     # Only use ScraperAPI if explicitly requested
@@ -689,6 +736,7 @@ elif page == "Real Sponsors":
         if not project:
             st.error("Please describe your project or part")
         else:
+            st.warning("⚠️ Search in progress - DO NOT switch pages or the search will be cancelled!")
             with st.spinner("Searching for real sponsors with actual contact info..."):
                 try:
                     # Build search query
@@ -1116,6 +1164,7 @@ elif page == "Vendor Search":
         if not part_name:
             st.error("Please enter a specific part or product name")
         else:
+            st.warning("⚠️ Search in progress - DO NOT switch pages or the search will be cancelled!")
             with st.spinner(f"Searching for real '{part_name}' vendors..."):
                 try:
                     # Build search queries - use only the 2 most effective
@@ -1136,7 +1185,8 @@ elif page == "Vendor Search":
                     # Initialize searcher - don't use ScraperAPI for individual sites
                     searcher = EmailSearcher(max_pages=2, delay=0.3, scraper_api_key=None, use_scraper_for_sites=False)
                     
-                    all_vendor_urls = set()
+                    # Track URLs with their source (DuckDuckGo or ScraperAPI)
+                    all_vendor_urls = {}  # {url: source_engine}
                     
                     # Use DuckDuckGo + ScraperAPI Google concurrently for best results
                     search_engines = [
@@ -1223,7 +1273,8 @@ elif page == "Vendor Search":
                                         if url.startswith('http'):
                                             domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                             if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                                all_vendor_urls.add(f"https://{domain}")
+                                                vendor_url = f"https://{domain}"
+                                                all_vendor_urls[vendor_url] = 'DuckDuckGo'
                                                 found_in_iteration += 1
                                     
                                     # Alternative: span.link-text parent links
@@ -1235,7 +1286,8 @@ elif page == "Vendor Search":
                                                 if url.startswith('http'):
                                                     domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                                     if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                                        all_vendor_urls.add(f"https://{domain}")
+                                                        vendor_url = f"https://{domain}"
+                                                        all_vendor_urls[vendor_url] = 'DuckDuckGo'
                                                         found_in_iteration += 1
                                 
                                 elif engine_name == "Google":
@@ -1247,7 +1299,8 @@ elif page == "Vendor Search":
                                             if url.startswith('http'):
                                                 domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                                 if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                                    all_vendor_urls.add(f"https://{domain}")
+                                                    vendor_url = f"https://{domain}"
+                                                    all_vendor_urls[vendor_url] = 'ScraperAPI'
                                                     found_in_iteration += 1
                                 
                                 # Aggressive fallback
@@ -1256,7 +1309,9 @@ elif page == "Vendor Search":
                                     if href.startswith('http'):
                                         domain = href.replace('https://', '').replace('http://', '').replace('www.', '').split('?')[0].split('/')[0]
                                         if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                            all_vendor_urls.add(f"https://{domain}")
+                                            vendor_url = f"https://{domain}"
+                                            if vendor_url not in all_vendor_urls:  # Don't overwrite existing source
+                                                all_vendor_urls[vendor_url] = engine_name
                                             found_in_iteration += 1
                                 
                                 if found_in_iteration > 0:
@@ -1352,23 +1407,25 @@ elif page == "Vendor Search":
                     # Add distributors from matched categories
                     for category in matched_categories:
                         if category in common_distributors:
-                            all_vendor_urls.update(common_distributors[category][:3])  # Top 3 per category
+                            for dist_url in common_distributors[category][:3]:  # Top 3 per category
+                                if dist_url not in all_vendor_urls:
+                                    all_vendor_urls[dist_url] = 'Common'
                     
                     # Remove duplicates by domain and limit
                     seen_domains = set()
-                    unique_vendor_urls = []
+                    unique_vendor_data = []  # [(url, source), ...]
                     
-                    for url in all_vendor_urls:
+                    for url, source in all_vendor_urls.items():
                         # Extract domain for deduplication
                         domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
                         
                         if domain not in seen_domains:
                             seen_domains.add(domain)
-                            unique_vendor_urls.append(url)
+                            unique_vendor_data.append((url, source))
                     
-                    vendor_urls = unique_vendor_urls[:10]
+                    vendor_data_list = unique_vendor_data[:10]
                     
-                    if not vendor_urls:
+                    if not vendor_data_list:
                         st.error("No vendor websites found. Try:")
                         st.markdown("""
                         - Be more specific with part name/model number
@@ -1376,7 +1433,7 @@ elif page == "Vendor Search":
                         - Use Email Search tab to search specific vendor websites
                         """)
                     else:
-                        st.success(f"Found {len(vendor_urls)} potential vendor websites")
+                        st.success(f"Found {len(vendor_data_list)} potential vendor websites")
                         
                         # Store results in structured format
                         vendor_results = []
@@ -1385,15 +1442,16 @@ elif page == "Vendor Search":
                         progress_bar = st.progress(0)
                         status_text = st.empty()
                         
-                        for i, url in enumerate(vendor_urls, 1):
-                            progress_bar.progress(i / len(vendor_urls))
-                            status_text.text(f"Processing {i}/{len(vendor_urls)}: {url}")
+                        for i, (url, source) in enumerate(vendor_data_list, 1):
+                            progress_bar.progress(i / len(vendor_data_list))
+                            status_text.text(f"Processing {i}/{len(vendor_data_list)}: {url}")
                             
                             vendor_data = {
                                 'url': url,
                                 'name': url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0],
                                 'emails': [],
-                                'relevance_score': 0
+                                'relevance_score': 0,
+                                'source': source  # Track where this vendor was found
                             }
                             
                             # Calculate relevance score
@@ -1431,7 +1489,7 @@ elif page == "Vendor Search":
                         # Display compact summary
                         st.markdown("---")
                         st.markdown("### Vendor Search Summary")
-                        st.markdown(f"**Part:** {part_name} | **Region:** {location} | **Found:** {len(vendor_urls)} vendors")
+                        st.markdown(f"**Part:** {part_name} | **Region:** {location} | **Found:** {len(vendor_results)} vendors")
                         
                         # Create side-by-side layout for debug and results
                         col_debug, col_results = st.columns([1, 2])
@@ -1449,7 +1507,7 @@ elif page == "Vendor Search":
                             st.markdown("#### Vendor Results")
                             
                             # Display results in compact table
-                            col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+                            col1, col2, col3, col4, col5 = st.columns([1, 3, 2, 2, 1])
                             with col1:
                                 st.markdown("**#**")
                             with col2:
@@ -1457,12 +1515,14 @@ elif page == "Vendor Search":
                             with col3:
                                 st.markdown("**Contact**")
                             with col4:
+                                st.markdown("**Source**")
+                            with col5:
                                 st.markdown("**Action**")
                             
                             st.markdown("---")
                             
                             for i, vendor in enumerate(vendor_results, 1):
-                                col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+                                col1, col2, col3, col4, col5 = st.columns([1, 3, 2, 2, 1])
                                 
                                 with col1:
                                     st.text(f"{i}")
@@ -1480,6 +1540,18 @@ elif page == "Vendor Search":
                                         st.text("Visit site")
                                 
                                 with col4:
+                                    # Display source badge
+                                    source = vendor.get('source', 'Unknown')
+                                    if source == 'ScraperAPI':
+                                        st.markdown("🔧 `ScraperAPI`")
+                                    elif source == 'DuckDuckGo':
+                                        st.markdown("🦆 `DuckDuckGo`")
+                                    elif source == 'Common':
+                                        st.markdown("📋 `Common`")
+                                    else:
+                                        st.text(source)
+                                
+                                with col5:
                                     if st.button("+", key=f"add_vendor_{i}", help="Add to database"):
                                         # Save to database
                                         company_id = db.add_company(
