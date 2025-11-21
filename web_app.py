@@ -76,7 +76,7 @@ st.markdown("""
     
     /* Main header with logo */
     .main-header {
-        font-size: 3.5rem;
+        font-size: 2.2rem;
         font-weight: 800;
         background: linear-gradient(135deg, #3b8ed0 0%, #5ba3e0 100%);
         -webkit-background-clip: text;
@@ -87,17 +87,17 @@ st.markdown("""
     }
     
     .sub-header {
-        font-size: 1.3rem;
+        font-size: 0.95rem;
         color: #9ca3af;
         text-align: center;
-        margin-bottom: 3rem;
+        margin-bottom: 2rem;
         font-weight: 500;
     }
     
     /* Stat boxes with modern cards */
     .stat-box {
         background: linear-gradient(135deg, #1e2235 0%, #252a42 100%);
-        padding: 2rem;
+        padding: 1.25rem;
         border-radius: 16px;
         text-align: center;
         border: 1px solid rgba(59, 142, 208, 0.3);
@@ -111,7 +111,7 @@ st.markdown("""
     }
     
     .stat-number {
-        font-size: 3.5rem;
+        font-size: 2rem;
         font-weight: 800;
         background: linear-gradient(135deg, #3b8ed0 0%, #60b0ff 100%);
         -webkit-background-clip: text;
@@ -120,7 +120,7 @@ st.markdown("""
     }
     
     .stat-label {
-        font-size: 1.1rem;
+        font-size: 0.85rem;
         color: #9ca3af;
         font-weight: 600;
         text-transform: uppercase;
@@ -133,9 +133,9 @@ st.markdown("""
         background: linear-gradient(135deg, #3b8ed0 0%, #2d7ab8 100%);
         color: white;
         border-radius: 12px;
-        padding: 1rem 2rem;
+        padding: 0.75rem 1.5rem;
         font-weight: 600;
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         border: none;
         box-shadow: 0 4px 16px rgba(59, 142, 208, 0.4);
         transition: all 0.3s ease;
@@ -157,8 +157,8 @@ st.markdown("""
         color: #e8eaed;
         border: 2px solid rgba(59, 142, 208, 0.3);
         border-radius: 10px;
-        padding: 0.75rem 1rem;
-        font-size: 1rem;
+        padding: 0.6rem 0.9rem;
+        font-size: 0.9rem;
         transition: all 0.3s ease;
     }
     
@@ -173,7 +173,7 @@ st.markdown("""
     label {
         color: #e8eaed !important;
         font-weight: 600 !important;
-        font-size: 1rem !important;
+        font-size: 0.9rem !important;
         margin-bottom: 0.5rem !important;
     }
     
@@ -231,22 +231,22 @@ st.markdown("""
     }
     
     h1 {
-        font-size: 2.5rem !important;
+        font-size: 2rem !important;
         margin-bottom: 1.5rem !important;
     }
     
     h2 {
-        font-size: 2rem !important;
+        font-size: 1.5rem !important;
         margin-bottom: 1rem !important;
     }
     
     h3 {
-        font-size: 1.5rem !important;
+        font-size: 1.2rem !important;
     }
     
     /* Paragraphs */
     p {
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         color: #d1d5db;
         line-height: 1.6;
     }
@@ -255,11 +255,11 @@ st.markdown("""
 
 # Main header with UBCO branding
 st.markdown("""
-<div style="text-align: center; margin-bottom: 3rem; padding: 2rem 0; border-bottom: 2px solid rgba(59, 142, 208, 0.3);">
-    <div style="margin-bottom: 0.5rem;">
-        <span style="font-size: 2rem; color: #3b8ed0; font-weight: 700;">UBCO</span>
+<div style="text-align: center; margin-bottom: 2rem; padding: 1.5rem 0; border-bottom: 2px solid rgba(59, 142, 208, 0.3);">
+    <div style="margin-bottom: 0.3rem;">
+        <span style="font-size: 1.4rem; color: #3b8ed0; font-weight: 700; letter-spacing: 0.1em;">UBCO</span>
     </div>
-    <div class="main-header" style="margin-bottom: 0.5rem;">AEROSPACE</div>
+    <div class="main-header" style="margin-bottom: 0.3rem;">AEROSPACE</div>
     <div class="sub-header">Integrated Sponsor Management System</div>
 </div>
 """, unsafe_allow_html=True)
@@ -319,10 +319,10 @@ if st.session_state.show_wolf:
 
 # Sidebar with modern branding
 st.sidebar.markdown("""
-<div style="text-align: center; margin-bottom: 2rem; padding: 1.5rem 1rem; border-bottom: 2px solid rgba(59, 142, 208, 0.2);">
-    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.4rem; font-weight: 700; letter-spacing: 0.1em;">UBCO</h2>
-    <h3 style="color: #5ba3e0; margin: 0.5rem 0 0 0; font-size: 1.8rem; font-weight: 800;">AEROSPACE</h3>
-    <p style="color: #9ca3af; margin: 0.75rem 0 0 0; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Sponsor Management</p>
+<div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; border-bottom: 2px solid rgba(59, 142, 208, 0.2);">
+    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBCO</h2>
+    <h3 style="color: #5ba3e0; margin: 0.3rem 0 0 0; font-size: 1.4rem; font-weight: 800;">AEROSPACE</h3>
+    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Sponsor Management</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -385,7 +385,7 @@ st.sidebar.metric("Drafted Emails", db_stats['drafted_emails'])
 
 # Main Content
 if page == "Dashboard":
-    st.markdown('<h1 style="text-align: center; font-size: 2.5rem; margin-bottom: 2rem; font-weight: 700; color: #e8eaed;">SPONSOR DASHBOARD</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align: center; font-size: 1.8rem; margin-bottom: 1.5rem; font-weight: 700; color: #e8eaed;">SPONSOR DASHBOARD</h1>', unsafe_allow_html=True)
     
     # Stats from database
     col1, col2, col3, col4 = st.columns(4)
