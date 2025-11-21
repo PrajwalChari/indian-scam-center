@@ -397,22 +397,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Main header with UBCO branding
-if logo_base64:
-    st.markdown(f"""
-    <div style="text-align: center; margin-bottom: 2rem; padding: 1.5rem 0; border-bottom: 2px solid rgba(59, 142, 208, 0.3);">
-        <img src="data:image/jpeg;base64,{logo_base64}" alt="UBCO Aerospace" style="max-width:180px; margin-bottom:0.75rem;" />
-        <div class="main-header" style="margin-bottom:0.3rem;">UBCO AEROSPACE</div>
-        <div class="sub-header">Integrated Sponsor Management System</div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <div style="text-align: center; margin-bottom: 2rem; padding: 1.5rem 0; border-bottom: 2px solid rgba(59, 142, 208, 0.3);">
-        <div class="main-header" style="margin-bottom:0.3rem;">UBCO AEROSPACE</div>
-        <div class="sub-header">Integrated Sponsor Management System</div>
-    </div>
-    """, unsafe_allow_html=True)
+
 
 # Initialize database
 @st.cache_resource
@@ -454,10 +439,21 @@ if 'openai_client' not in st.session_state:
         st.session_state.openai_enabled = False
 
 # Sidebar with UBCO branding
-st.sidebar.markdown("""
+if logo_base64:
+    st.sidebar.markdown(f"""
 <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; border-bottom: 2px solid rgba(59, 142, 208, 0.2);">
-    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBC</h2>
-    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">From Heritage and Homeland</p>
+    <img src="data:image/jpeg;base64,{logo_base64}" alt="UBCO Aerospace" style="max-width:120px; margin-bottom:0.5rem;" />
+    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBCO</h2>
+    <h3 style="color: #5ba3e0; margin: 0.3rem 0 0 0; font-size: 1.2rem; font-weight: 800;">AEROSPACE</h3>
+    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Sponsor Management</p>
+</div>
+""", unsafe_allow_html=True)
+else:
+    st.sidebar.markdown("""
+<div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; border-bottom: 2px solid rgba(59, 142, 208, 0.2);">
+    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBCO</h2>
+    <h3 style="color: #5ba3e0; margin: 0.3rem 0 0 0; font-size: 1.2rem; font-weight: 800;">AEROSPACE</h3>
+    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Sponsor Management</p>
 </div>
 """, unsafe_allow_html=True)
 
