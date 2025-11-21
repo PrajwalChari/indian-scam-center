@@ -442,18 +442,13 @@ if 'openai_client' not in st.session_state:
 if logo_base64:
     st.sidebar.markdown(f"""
 <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; border-bottom: 2px solid rgba(59, 142, 208, 0.2);">
-    <img src="data:image/jpeg;base64,{logo_base64}" alt="UBCO Aerospace" style="max-width:120px; margin-bottom:0.5rem;" />
-    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBCO</h2>
-    <h3 style="color: #5ba3e0; margin: 0.3rem 0 0 0; font-size: 1.2rem; font-weight: 800;">AEROSPACE</h3>
-    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Sponsor Management</p>
+    <img src="data:image/jpeg;base64,{logo_base64}" alt="UBCO Aerospace" style="max-width:200px; margin-bottom:0.5rem;" />
 </div>
 """, unsafe_allow_html=True)
 else:
     st.sidebar.markdown("""
 <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; border-bottom: 2px solid rgba(59, 142, 208, 0.2);">
-    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBCO</h2>
-    <h3 style="color: #5ba3e0; margin: 0.3rem 0 0 0; font-size: 1.2rem; font-weight: 800;">AEROSPACE</h3>
-    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Sponsor Management</p>
+    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBCO AEROSPACE</h2>
 </div>
 """, unsafe_allow_html=True)
 
