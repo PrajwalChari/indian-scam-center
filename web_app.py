@@ -40,7 +40,7 @@ st.set_page_config(
     page_title="UBCO Aerospace - Sponsor Center",
     page_icon="✈",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Modern CSS with UBCO branding - v2.0
@@ -387,8 +387,8 @@ st.sidebar.metric("Drafted Emails", db_stats['drafted_emails'])
 if page == "Dashboard":
     st.markdown('<h1 style="text-align: center; font-size: 1.8rem; margin-bottom: 1.5rem; font-weight: 700; color: #e8eaed;">SPONSOR DASHBOARD</h1>', unsafe_allow_html=True)
     
-    # Stats from database
-    col1, col2, col3, col4 = st.columns(4)
+    # Key stats - only show the 3 most important metrics
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown(f"""
@@ -403,42 +403,6 @@ if page == "Dashboard":
         <div class="stat-box">
             <div class="stat-number">{db_stats['total_contacts']}</div>
             <div class="stat-label">Contact Emails</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="stat-box">
-            <div class="stat-number">{db_stats['drafted_emails']}</div>
-            <div class="stat-label">Drafted Emails</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-        <div class="stat-box">
-            <div class="stat-number">{db_stats['sent_emails']}</div>
-            <div class="stat-label">Sent Emails</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Second row of stats
-    st.markdown("<br>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="stat-box">
-            <div class="stat-number">{db_stats['total_sponsors']}</div>
-            <div class="stat-label">Sponsors</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="stat-box">
-            <div class="stat-number">{db_stats['total_vendors']}</div>
-            <div class="stat-label">Vendors</div>
         </div>
         """, unsafe_allow_html=True)
     
