@@ -164,7 +164,7 @@ else:
 # Page configuration
 st.set_page_config(
     page_title="UBCO Aerospace - Sponsor Center",
-    page_icon="✈",
+    page_icon="✈Sheesh",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -435,6 +435,12 @@ if 'drafted_emails' not in st.session_state:
     st.session_state.drafted_emails = []  # Store emails created in session
 if 'page_switch' not in st.session_state:
     st.session_state.page_switch = None
+if 'vendor_search_results' not in st.session_state:
+    st.session_state.vendor_search_results = []  # Persist vendor search results
+if 'vendor_search_part' not in st.session_state:
+    st.session_state.vendor_search_part = ""  # Remember last search term
+if 'email_search_results' not in st.session_state:
+    st.session_state.email_search_results = {}  # Persist email search results by URL
 if 'openai_client' not in st.session_state:
     try:
         if OPENAI_API_KEY and OPENAI_API_KEY.strip():
@@ -450,9 +456,8 @@ if 'openai_client' not in st.session_state:
 # Sidebar with UBCO branding
 st.sidebar.markdown("""
 <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; border-bottom: 2px solid rgba(59, 142, 208, 0.2);">
-    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBCO</h2>
-    <h3 style="color: #5ba3e0; margin: 0.3rem 0 0 0; font-size: 1.4rem; font-weight: 800;">AEROSPACE</h3>
-    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Sponsor Management</p>
+    <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBC</h2>
+    <p style="color: #9ca3af; margin: 0.5rem 0 0 0; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">From Heritage and Homeland</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -610,8 +615,12 @@ elif page == "Email Search":
                     if emails:
                         st.success(f"Found {len(emails)} email addresses!")
                         
-                        # Store in session state
+                        # Store in session state with URL for persistence
                         st.session_state.search_results = emails
+                        st.session_state.email_search_results[url] = {
+                            'emails': list(emails),
+                            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
                         for email in emails:
                             if email not in st.session_state.found_companies:
                                 st.session_state.found_companies.append(email)
@@ -650,13 +659,25 @@ elif page == "Email Search":
                     st.error(f"Search failed: {str(e)}")
     
     # Display previous results if they exist
-    elif 'search_results' in st.session_state:
-        st.markdown("### Previous Search Results")
-        emails = st.session_state.search_results
-        result_text = f"Found {len(emails)} email addresses:\n\n"
-        for i, email in enumerate(sorted(emails), 1):
-            result_text += f"{i:2d}. {email}\n"
-        st.text_area("Results", result_text, height=300, label_visibility="collapsed")
+    if st.session_state.email_search_results:
+        st.markdown("---")
+        st.markdown("### Previous Email Searches")
+        
+        for url, data in st.session_state.email_search_results.items():
+            with st.expander(f"{url} - {len(data['emails'])} emails found ({data['timestamp']})"):
+                result_text = f"Found {len(data['emails'])} email addresses:\n\n"
+                for i, email in enumerate(sorted(data['emails']), 1):
+                    result_text += f"{i:2d}. {email}\n"
+                st.text_area("", result_text, height=200, label_visibility="collapsed", key=f"email_result_{url}")
+                
+                csv_data = "\n".join(sorted(data['emails']))
+                st.download_button(
+                    label="Download",
+                    data=csv_data,
+                    file_name=f"emails_{url.replace('https://', '').replace('http://', '').split('/')[0]}.csv",
+                    mime="text/csv",
+                    key=f"download_{url}"
+                )
 
 elif page == "Real Sponsors":
     st.markdown('<p class="main-header">Real Sponsor Finder</p>', unsafe_allow_html=True)
@@ -1084,6 +1105,10 @@ elif page == "Real Sponsors":
 elif page == "Vendor Search":
     st.markdown('<p class="main-header">Specific Vendor & Parts Search</p>', unsafe_allow_html=True)
     
+    # Show if there are saved results
+    if st.session_state.vendor_search_results:
+        st.info(f"💾 Previous search results for '{st.session_state.vendor_search_part}' are shown below. Run a new search to update.")
+    
     # Input section
     part_name = st.text_input("Specific Part or Product Name", 
                              placeholder="e.g., TD3 recovery system, Arduino Uno, Carbon fiber sheets")
@@ -1186,9 +1211,13 @@ elif page == "Vendor Search":
                                 
                                 search_status.text(f"🔍 Parsing {engine_name} results...")
                                 
-                                # Debug: Show snippet of received HTML
-                                with st.expander(f"Debug: {engine_name} HTML preview"):
-                                    st.code(search_content[:1000], language="html")
+                                # Store debug info for later display
+                                if 'debug_panels' not in locals():
+                                    debug_panels = []
+                                debug_panels.append({
+                                    'engine': engine_name,
+                                    'content': search_content[:1000]
+                                })
                                 
                                 skip_domains = ['duckduckgo', 'google', 'bing', 'yahoo', 'facebook', 'twitter', 
                                                'linkedin', 'youtube', 'wikipedia', 'reddit', 'amazon', 'ebay', 'instagram']
@@ -1403,78 +1432,93 @@ elif page == "Vendor Search":
                         # Sort by relevance score (highest first)
                         vendor_results.sort(key=lambda x: x['relevance_score'], reverse=True)
                         
-                        # Store results in session state so buttons work
-                        st.session_state.last_vendor_search = vendor_results
+                        # Store results in session state so they persist across page switches
+                        st.session_state.vendor_search_results = vendor_results
+                        st.session_state.vendor_search_part = part_name
+                        st.session_state.last_vendor_search = vendor_results  # Keep for compatibility
                         
                         # Display compact summary
                         st.markdown("---")
                         st.markdown("### Vendor Search Summary")
                         st.markdown(f"**Part:** {part_name} | **Region:** {location} | **Found:** {len(vendor_urls)} vendors")
                         
-                        # Display results in compact table
-                        st.markdown("### Vendor Results")
+                        # Create side-by-side layout for debug and results
+                        col_debug, col_results = st.columns([1, 2])
                         
-                        col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
-                        with col1:
-                            st.markdown("**#**")
-                        with col2:
-                            st.markdown("**Vendor**")
-                        with col3:
-                            st.markdown("**Contact**")
-                        with col4:
-                            st.markdown("**Action**")
+                        with col_debug:
+                            st.markdown("#### Debug Info")
+                            if 'debug_panels' in locals():
+                                for panel in debug_panels:
+                                    with st.expander(f"{panel['engine']} HTML"):
+                                        st.code(panel['content'], language="html")
+                            else:
+                                st.info("No debug info available")
                         
-                        st.markdown("---")
-                        
-                        for i, vendor in enumerate(vendor_results, 1):
+                        with col_results:
+                            st.markdown("#### Vendor Results")
+                            
+                            # Display results in compact table
                             col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
-                            
                             with col1:
-                                st.text(f"{i}")
-                            
+                                st.markdown("**#**")
                             with col2:
-                                st.markdown(f"[{vendor['name']}]({vendor['url']})")
-                            
+                                st.markdown("**Vendor**")
                             with col3:
-                                if vendor['emails']:
-                                    emails_display = ', '.join(vendor['emails'][:2])
-                                    if len(vendor['emails']) > 2:
-                                        emails_display += f" +{len(vendor['emails'])-2}"
-                                    st.text(emails_display)
-                                else:
-                                    st.text("Visit site")
-                            
+                                st.markdown("**Contact**")
                             with col4:
-                                if st.button("+", key=f"add_vendor_{i}", help="Add to database"):
-                                    # Save to database
-                                    company_id = db.add_company(
-                                        name=vendor['name'],
-                                        url=vendor['url'],
-                                        company_type='vendor',
-                                        project_part=part_name,
-                                        relevance_score=vendor.get('relevance_score', 0)
-                                    )
-                                    
-                                    # Add contacts
+                                st.markdown("**Action**")
+                            
+                            st.markdown("---")
+                            
+                            for i, vendor in enumerate(vendor_results, 1):
+                                col1, col2, col3, col4 = st.columns([1, 3, 3, 1])
+                                
+                                with col1:
+                                    st.text(f"{i}")
+                                
+                                with col2:
+                                    st.markdown(f"[{vendor['name']}]({vendor['url']})")
+                                
+                                with col3:
                                     if vendor['emails']:
-                                        for email in vendor['emails']:
-                                            db.add_contact(company_id, email)
-                                    
-                                    # Also add to session state for compatibility
-                                    contact_entry = {
-                                        'name': vendor['name'],
-                                        'url': vendor['url'],
-                                        'emails': vendor['emails'],
-                                        'type': 'vendor',
-                                        'part': part_name
-                                    }
-                                    
-                                    if not any(c['url'] == vendor['url'] for c in st.session_state.contact_list):
-                                        st.session_state.contact_list.append(contact_entry)
-                                    
-                                    st.success(f"Added {vendor['name']} to database!")
-                                    time.sleep(0.5)
-                                    st.rerun()
+                                        emails_display = ', '.join(vendor['emails'][:2])
+                                        if len(vendor['emails']) > 2:
+                                            emails_display += f" +{len(vendor['emails'])-2}"
+                                        st.text(emails_display)
+                                    else:
+                                        st.text("Visit site")
+                                
+                                with col4:
+                                    if st.button("+", key=f"add_vendor_{i}", help="Add to database"):
+                                        # Save to database
+                                        company_id = db.add_company(
+                                            name=vendor['name'],
+                                            url=vendor['url'],
+                                            company_type='vendor',
+                                            project_part=part_name,
+                                            relevance_score=vendor.get('relevance_score', 0)
+                                        )
+                                        
+                                        # Add contacts
+                                        if vendor['emails']:
+                                            for email in vendor['emails']:
+                                                db.add_contact(company_id, email)
+                                        
+                                        # Also add to session state for compatibility
+                                        contact_entry = {
+                                            'name': vendor['name'],
+                                            'url': vendor['url'],
+                                            'emails': vendor['emails'],
+                                            'type': 'vendor',
+                                            'part': part_name
+                                        }
+                                        
+                                        if not any(c['url'] == vendor['url'] for c in st.session_state.contact_list):
+                                            st.session_state.contact_list.append(contact_entry)
+                                        
+                                        st.success(f"Added {vendor['name']} to database!")
+                                        time.sleep(0.5)
+                                        st.rerun()
                         
                         # Detailed results in expander
                         with st.expander("View Detailed Results & Next Steps"):
