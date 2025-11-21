@@ -459,8 +459,8 @@ if st.session_state.page_switch:
 else:
     page = st.sidebar.radio(
         "Navigation",
-        ["Dashboard", "Email Search", "Real Sponsors", 
-         "Vendor Search", "Email Center", "Email Templates", "Company Database", "Export Tools"],
+        ["Dashboard", "Email Scrapper", "Cash Sponsorships", 
+         "Vendor/Part Search", "Email Center", "Templates Entry", "Company Database", "Export Tools"],
         label_visibility="collapsed"
     )
 
@@ -469,12 +469,12 @@ st.sidebar.markdown("### Status")
 if SCRAPER_API_KEY:
     st.sidebar.success("ScraperAPI: ACTIVE")
 else:
-    st.sidebar.warning("ScraperAPI: Not Configured")
+    st.sidebar.warning("ScraperAPI: Fucking Dead")
 
 if st.session_state.openai_enabled:
     st.sidebar.success("AI Assistant: Connected")
 else:
-    st.sidebar.info("AI Assistant: Optional")
+    st.sidebar.info("AI Assistant: Fucking Dead")
 
 # Get database statistics
 db_stats = db.get_statistics()
@@ -505,7 +505,7 @@ if SCRAPER_API_KEY:
                 
                 if response.status_code == 200:
                     st.write("✅ Status: 200 OK")
-                    st.write(f"📦 Response size: {len(response.content)} bytes")
+                    st.write(f"Response size: {len(response.content)} bytes")
                     
                     # Check if it's actual Google HTML
                     content = response.text.lower()
