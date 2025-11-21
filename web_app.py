@@ -190,27 +190,28 @@ st.markdown("""
         background: linear-gradient(135deg, #0a0e27 0%, #1a1d3a 100%) !important;
     }
     
-    /* Sidebar styling */
+    /* Sidebar styling - Force visible */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #141824 0%, #1e2235 100%) !important;
         border-right: 1px solid rgba(59, 142, 208, 0.2) !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
     
     [data-testid="stSidebar"] .stMarkdown {
         color: #e8eaed !important;
     }
     
+    [data-testid="stSidebar"] > div:first-child {
+        display: block !important;
+        visibility: visible !important;
+    }
+    
     /* Hide default Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    
-    /* Hide sidebar collapse button and deploy menu */
-    button[kind="header"] {
-        display: none !important;
-    }
-    [data-testid="stToolbar"] {
-        display: none !important;
-    }
+    [data-testid="stToolbar"] {visibility: hidden;}
     
     /* Main header with logo */
     .main-header {
@@ -430,10 +431,14 @@ if 'drafted_emails' not in st.session_state:
 if 'page_switch' not in st.session_state:
     st.session_state.page_switch = None
 if 'openai_client' not in st.session_state:
-    if OPENAI_API_KEY and OPENAI_API_KEY != 'your_openai_api_key_here':
-        st.session_state.openai_client = OpenAI(api_key=OPENAI_API_KEY)
-        st.session_state.openai_enabled = True
-    else:
+    try:
+        if OPENAI_API_KEY and OPENAI_API_KEY.strip():
+            st.session_state.openai_client = OpenAI(api_key=OPENAI_API_KEY)
+            st.session_state.openai_enabled = True
+        else:
+            st.session_state.openai_client = None
+            st.session_state.openai_enabled = False
+    except Exception:
         st.session_state.openai_client = None
         st.session_state.openai_enabled = False
 
