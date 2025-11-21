@@ -24,10 +24,11 @@ from database import SponsorDatabase
 
 # Inlined EmailSearcher (previously in main_windows.py) for single-file deployment
 class EmailSearcher:
-    def __init__(self, max_pages=10, delay=1, scraper_api_key=None):
+    def __init__(self, max_pages=3, delay=0.5, scraper_api_key=None, use_scraper_for_sites=False):
         self.max_pages = max_pages
         self.delay = delay
         self.scraper_api_key = scraper_api_key
+        self.use_scraper_for_sites = use_scraper_for_sites
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -46,13 +47,14 @@ class EmailSearcher:
             '/careers','/jobs','/employment'
         ]
 
-    def get_page_content(self, url: str):
+    def get_page_content(self, url: str, force_scraper=False):
         try:
-            if self.scraper_api_key:
+            # Only use ScraperAPI if explicitly forced or enabled for sites
+            if self.scraper_api_key and (force_scraper or self.use_scraper_for_sites):
                 scraper_url = f"http://api.scraperapi.com?api_key={self.scraper_api_key}&url={url}"
-                resp = requests.get(scraper_url, timeout=60, verify=False)
+                resp = requests.get(scraper_url, timeout=30, verify=False)
             else:
-                resp = self.session.get(url, timeout=15)
+                resp = self.session.get(url, timeout=10)
             resp.raise_for_status()
             return resp.text
         except Exception:
@@ -126,6 +128,9 @@ class EmailSearcher:
                 continue
             page_emails = self.extract_emails_from_text(content)
             found.update(page_emails)
+            # Early exit if we found 3+ emails to save API calls
+            if len(found) >= 3:
+                break
             time.sleep(self.delay)
         return found
 
@@ -549,16 +554,16 @@ elif page == "Email Search":
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown("**Max Pages**")
-            max_pages = st.slider("Max Pages to search", 5, 30, 15, label_visibility="collapsed")
-            st.caption(f"Pages: {max_pages}")
+            max_pages = st.slider("Max Pages to search", 1, 10, 3, label_visibility="collapsed")
+            st.caption(f"Pages: {max_pages} (fewer = faster & cheaper)")
         with col2:
             st.markdown("**Delay (seconds)**")
-            delay = st.slider("Delay between requests", 0.5, 3.0, 1.0, 0.1, label_visibility="collapsed")
+            delay = st.slider("Delay between requests", 0.3, 2.0, 0.5, 0.1, label_visibility="collapsed")
             st.caption(f"Delay: {delay}s")
         with col3:
             st.markdown("**Options**")
-            verify = st.checkbox("Verify Emails", value=True)
-            st.caption("Domain verification")
+            use_scraper = st.checkbox("Use ScraperAPI", value=False, help="Use only if direct access fails")
+            verify = st.checkbox("Verify Emails", value=False, help="Slower but more accurate")
     
     # Control buttons
     col1, col2, col3 = st.columns([2, 1, 1])
@@ -586,7 +591,20 @@ elif page == "Email Search":
             
             with st.spinner(f"Searching {url} for email addresses..."):
                 try:
-                    searcher = EmailSearcher(max_pages=max_pages, delay=delay, scraper_api_key=SCRAPER_API_KEY)
+                    # Only use ScraperAPI if explicitly requested
+                    api_key = SCRAPER_API_KEY if use_scraper else None
+                    searcher = EmailSearcher(
+                        max_pages=max_pages, 
+                        delay=delay, 
+                        scraper_api_key=api_key,
+                        use_scraper_for_sites=use_scraper
+                    )
+                    
+                    if use_scraper and SCRAPER_API_KEY:
+                        st.info("🔧 Using ScraperAPI (costs 1-5 credits per page)")
+                    elif use_scraper and not SCRAPER_API_KEY:
+                        st.warning("⚠️ ScraperAPI enabled but no API key found")
+                    
                     emails = searcher.search_website_for_emails(url)
                     
                     if emails:
@@ -1084,48 +1102,49 @@ elif page == "Vendor Search":
         else:
             with st.spinner(f"Searching for real '{part_name}' vendors..."):
                 try:
-                    # Build search queries
+                    # Build search queries - use only the 2 most effective
                     location = country
                     base_queries = [
                         f"{part_name} supplier {location}",
-                        f"{part_name} distributor {location}",
-                        f"{part_name} manufacturer {location}",
-                        f"buy {part_name} {location}"
+                        f"{part_name} distributor {location}"
                     ]
                     
                     st.info(f"Searching for: {part_name} vendors in {location}")
                     
                     # Show ScraperAPI status
                     if SCRAPER_API_KEY:
-                        st.success("🔧 Using ScraperAPI to bypass blocking")
+                        st.success("🔧 Using DuckDuckGo (free) + Google via ScraperAPI for best results")
                     else:
-                        st.warning("⚠️ No ScraperAPI - may get blocked by search engines")
+                        st.info("🆓 Using DuckDuckGo only (free) - add ScraperAPI key for Google results too")
                     
-                    # Initialize searcher with faster settings
-                    searcher = EmailSearcher(max_pages=2, delay=0.5, scraper_api_key=SCRAPER_API_KEY)
+                    # Initialize searcher - don't use ScraperAPI for individual sites
+                    searcher = EmailSearcher(max_pages=2, delay=0.3, scraper_api_key=None, use_scraper_for_sites=False)
                     
                     all_vendor_urls = set()
                     
-                    # Use multiple search engines for best results
+                    # Use DuckDuckGo + ScraperAPI Google concurrently for best results
                     search_engines = [
-                        ("Google", f"https://www.google.com/search?q={{}}&num=20"),
-                        ("Bing", f"https://www.bing.com/search?q={{}}"),
-                        ("DuckDuckGo", f"https://lite.duckduckgo.com/lite/?q={{}}")
+                        ("DuckDuckGo", f"https://lite.duckduckgo.com/lite/?q={{}}", False),  # Direct, free
+                        ("Google", f"https://www.google.com/search?q={{}}&num=20", True)     # Via ScraperAPI
                     ]
                     
                     progress_text = st.empty()
                     search_status = st.empty()
                     
-                    for engine_name, engine_url_template in search_engines:
-                        progress_text.info(f"🔍 Trying {engine_name}...")
+                    # Prepare all search requests
+                    all_results = []
+                    
+                    for engine_name, engine_url_template, use_scraper in search_engines:
+                        progress_text.info(f"🔍 Searching {engine_name}...")
                         
-                        for query in base_queries[:2]:  # Use first 2 queries
+                        for query in base_queries:  # Use both queries
                             search_url = engine_url_template.format(query.replace(' ', '+'))
                             
                             search_status.text(f"Query: {query}")
                             
-                            # ALWAYS use ScraperAPI for Google and Bing (they block direct requests)
-                            if SCRAPER_API_KEY:
+                            # Execute based on engine type
+                            if use_scraper and SCRAPER_API_KEY:
+                                # Use ScraperAPI for Google
                                 import urllib.parse
                                 import requests
                                 
@@ -1133,29 +1152,32 @@ elif page == "Vendor Search":
                                 scraper_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={encoded_url}"
                                 
                                 try:
-                                    search_status.text(f"Requesting {engine_name} via ScraperAPI...")
-                                    st.caption(f"Target: {search_url[:80]}...")
-                                    
+                                    search_status.text(f"🔧 {engine_name} via ScraperAPI...")
                                     response = requests.get(scraper_url, timeout=30)
                                     
                                     if response.status_code == 200:
                                         search_content = response.text
-                                        search_status.success(f"SUCCESS: Got {len(search_content):,} bytes from {engine_name}")
+                                        search_status.success(f"✅ {engine_name}: {len(search_content):,} bytes")
                                     else:
-                                        error_msg = f"Status {response.status_code}"
-                                        if response.text:
-                                            error_msg += f": {response.text[:100]}"
-                                        search_status.error(f"ERROR: {engine_name} - {error_msg}")
-                                        st.warning(f"ScraperAPI error. Check API key and credits at scraperapi.com")
+                                        search_status.warning(f"⚠️ {engine_name} failed: {response.status_code}")
                                         search_content = None
-                                except requests.exceptions.Timeout:
-                                    search_status.error(f"TIMEOUT: {engine_name}")
-                                    search_content = None
                                 except Exception as e:
-                                    search_status.error(f"ERROR: {str(e)[:80]}")
+                                    search_status.warning(f"⚠️ {engine_name} error: {str(e)[:50]}")
+                                    search_content = None
+                            elif not use_scraper:
+                                # Direct access (DuckDuckGo)
+                                try:
+                                    search_status.text(f"🆓 {engine_name} direct...")
+                                    response = requests.get(search_url, timeout=15)
+                                    if response.status_code == 200:
+                                        search_content = response.text
+                                        search_status.success(f"✅ {engine_name}: {len(search_content):,} bytes (FREE)")
+                                    else:
+                                        search_content = None
+                                except Exception:
                                     search_content = None
                             else:
-                                search_status.warning(f"SKIPPED: {engine_name} (requires ScraperAPI)")
+                                search_status.info(f"⏭️ Skipping {engine_name} (no API key)")
                                 search_content = None
                             
                             if search_content:
@@ -1173,22 +1195,35 @@ elif page == "Vendor Search":
                                 
                                 found_in_iteration = 0
                                 
-                                # DuckDuckGo Lite results - much simpler structure
-                                # Look for all links in result-link class
-                                for link in soup.find_all('a', class_='result-link'):
-                                    url = link.get('href', '')
-                                    if url.startswith('http'):
-                                        domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
-                                        if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
-                                            all_vendor_urls.add(f"https://{domain}")
-                                            found_in_iteration += 1
+                                # Parse based on search engine type
+                                if engine_name == "DuckDuckGo":
+                                    # DuckDuckGo Lite results
+                                    for link in soup.find_all('a', class_='result-link'):
+                                        url = link.get('href', '')
+                                        if url.startswith('http'):
+                                            domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                            if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                all_vendor_urls.add(f"https://{domain}")
+                                                found_in_iteration += 1
+                                    
+                                    # Alternative: span.link-text parent links
+                                    if found_in_iteration == 0:
+                                        for span in soup.find_all('span', class_='link-text'):
+                                            parent_link = span.find_parent('a')
+                                            if parent_link:
+                                                url = parent_link.get('href', '')
+                                                if url.startswith('http'):
+                                                    domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
+                                                    if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
+                                                        all_vendor_urls.add(f"https://{domain}")
+                                                        found_in_iteration += 1
                                 
-                                # Alternative: look for span.link-text parent links
-                                if found_in_iteration == 0:
-                                    for span in soup.find_all('span', class_='link-text'):
-                                        parent_link = span.find_parent('a')
-                                        if parent_link:
-                                            url = parent_link.get('href', '')
+                                elif engine_name == "Google":
+                                    # Google search results
+                                    for div in soup.find_all('div', class_=['g', 'yuRUbf']):
+                                        a_tag = div.find('a', href=True)
+                                        if a_tag:
+                                            url = a_tag['href']
                                             if url.startswith('http'):
                                                 domain = url.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0].split('?')[0]
                                                 if not any(skip in domain.lower() for skip in skip_domains) and '.' in domain:
