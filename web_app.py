@@ -6,7 +6,9 @@ Streamlit-based web interface for sponsorship and email search
 import streamlit as st
 import queue
 import threading
-from main_windows import EmailSearcher
+import re
+import requests
+from bs4 import BeautifulSoup
 from openai import OpenAI
 from datetime import datetime
 import json
@@ -14,7 +16,126 @@ import csv
 import io
 import os
 import time
+import base64
+import dns.resolver
+import smtplib
+from urllib.parse import urljoin, urlparse
 from database import SponsorDatabase
+
+# Inlined EmailSearcher (previously in main_windows.py) for single-file deployment
+class EmailSearcher:
+    def __init__(self, max_pages=10, delay=1, scraper_api_key=None):
+        self.max_pages = max_pages
+        self.delay = delay
+        self.scraper_api_key = scraper_api_key
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        self.session.verify = False  # allow sites with cert issues
+        self.email_patterns = [
+            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+            r'mailto:([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})',
+        ]
+        self.contact_pages = [
+            '/contact','/contact-us','/contact.html','/contact.php',
+            '/about','/about-us','/about.html','/about.php',
+            '/team','/staff','/people','/leadership',
+            '/support','/help','/customer-service',
+            '/legal','/privacy','/terms',
+            '/careers','/jobs','/employment'
+        ]
+
+    def get_page_content(self, url: str):
+        try:
+            if self.scraper_api_key:
+                scraper_url = f"http://api.scraperapi.com?api_key={self.scraper_api_key}&url={url}"
+                resp = requests.get(scraper_url, timeout=60, verify=False)
+            else:
+                resp = self.session.get(url, timeout=15)
+            resp.raise_for_status()
+            return resp.text
+        except Exception:
+            return None
+
+    def extract_emails_from_text(self, text: str):
+        emails = set()
+        for pattern in self.email_patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                email = match.group(1) if 'mailto:' in pattern else match.group(0)
+                email = email.lower().strip()
+                if self.is_valid_email_format(email):
+                    emails.add(email)
+        return emails
+
+    def is_valid_email_format(self, email: str):
+        false_positives = {
+            'example@example.com','test@test.com','admin@admin.com',
+            'info@info.com','contact@contact.com','support@support.com',
+            'noreply@noreply.com','donotreply@donotreply.com'
+        }
+        if email in false_positives: return False
+        if any(ext in email for ext in ['.jpg','.png','.gif','.svg']): return False
+        return '@' in email and '.' in email.split('@')[-1]
+
+    def get_all_links(self, base_url: str, html: str):
+        soup = BeautifulSoup(html, 'html.parser')
+        links = set()
+        base_domain = urlparse(base_url).netloc
+        for a in soup.find_all('a', href=True):
+            href = a['href'].strip()
+            if not href or href.startswith(('mailto:', 'javascript:', '#')):
+                continue
+            full = urljoin(base_url, href)
+            if urlparse(full).netloc == base_domain:
+                links.add(full.split('#')[0])
+        return links
+
+    def analyze_structure(self, base_url: str):
+        content = self.get_page_content(base_url)
+        if not content:
+            return []
+        all_links = self.get_all_links(base_url, content)
+        categories = {
+            'contact':[], 'about':[], 'team':[], 'support':[], 'other':[]
+        }
+        for link in all_links:
+            L = link.lower()
+            if any(k in L for k in ['contact','reach','touch']): categories['contact'].append(link)
+            elif any(k in L for k in ['about','company','who','story']): categories['about'].append(link)
+            elif any(k in L for k in ['team','staff','people','leadership','management']): categories['team'].append(link)
+            elif any(k in L for k in ['support','help','service','customer']): categories['support'].append(link)
+            else: categories['other'].append(link)
+        ordered = []
+        ordered += categories['contact'][:3]
+        ordered += categories['about'][:2]
+        ordered += categories['team'][:2]
+        ordered += categories['support'][:2]
+        ordered += categories['other'][:3]
+        if base_url not in ordered:
+            ordered.insert(0, base_url)
+        return ordered
+
+    def search_website_for_emails(self, base_url: str):
+        pages = self.analyze_structure(base_url)
+        pages = pages[:self.max_pages]
+        found = set()
+        for i, url in enumerate(pages, 1):
+            content = self.get_page_content(url)
+            if not content:
+                continue
+            page_emails = self.extract_emails_from_text(content)
+            found.update(page_emails)
+            time.sleep(self.delay)
+        return found
+
+    def verify_email_domain(self, email: str):
+        domain = email.split('@')[-1]
+        try:
+            mx = dns.resolver.resolve(domain, 'MX')
+            return len(mx) > 0
+        except Exception:
+            return False
 
 # OpenAI API Configuration - Use environment variable for security
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -40,8 +161,18 @@ st.set_page_config(
     page_title="UBCO Aerospace - Sponsor Center",
     page_icon="✈",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
+
+# Load logo (optional)
+def get_base64_image(image_path: str):
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return None
+
+logo_base64 = get_base64_image("ubco_aerospace_logo.jpg")
 
 # Modern CSS with UBCO branding - v2.0
 st.markdown("""
@@ -72,7 +203,14 @@ st.markdown("""
     /* Hide default Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    
+    /* Hide sidebar collapse button and deploy menu */
+    button[kind="header"] {
+        display: none !important;
+    }
+    [data-testid="stToolbar"] {
+        display: none !important;
+    }
     
     /* Main header with logo */
     .main-header {
@@ -254,15 +392,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Main header with UBCO branding
-st.markdown("""
-<div style="text-align: center; margin-bottom: 2rem; padding: 1.5rem 0; border-bottom: 2px solid rgba(59, 142, 208, 0.3);">
-    <div style="margin-bottom: 0.3rem;">
-        <span style="font-size: 1.4rem; color: #3b8ed0; font-weight: 700; letter-spacing: 0.1em;">UBCO</span>
+if logo_base64:
+    st.markdown(f"""
+    <div style="text-align: center; margin-bottom: 2rem; padding: 1.5rem 0; border-bottom: 2px solid rgba(59, 142, 208, 0.3);">
+        <img src="data:image/jpeg;base64,{logo_base64}" alt="UBCO Aerospace" style="max-width:180px; margin-bottom:0.75rem;" />
+        <div class="main-header" style="margin-bottom:0.3rem;">UBCO AEROSPACE</div>
+        <div class="sub-header">Integrated Sponsor Management System</div>
     </div>
-    <div class="main-header" style="margin-bottom: 0.3rem;">AEROSPACE</div>
-    <div class="sub-header">Integrated Sponsor Management System</div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 2rem; padding: 1.5rem 0; border-bottom: 2px solid rgba(59, 142, 208, 0.3);">
+        <div class="main-header" style="margin-bottom:0.3rem;">UBCO AEROSPACE</div>
+        <div class="sub-header">Integrated Sponsor Management System</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Initialize database
 @st.cache_resource
@@ -293,31 +437,7 @@ if 'openai_client' not in st.session_state:
         st.session_state.openai_client = None
         st.session_state.openai_enabled = False
 
-# Sidebar Navigation
-st.sidebar.markdown("# Integrated Sponsor Center")
-st.sidebar.markdown("### Sponsorship & Search Platform")
-st.sidebar.markdown("---")
-
-# Hidden easter egg in sidebar
-if 'show_wolf' not in st.session_state:
-    st.session_state.show_wolf = False
-
-if st.sidebar.button("💰", key="hidden_wolf_btn", help="Briefcase", use_container_width=False):
-    st.session_state.show_wolf = not st.session_state.show_wolf
-
-if st.session_state.show_wolf:
-    st.sidebar.markdown("""
-    <div style="text-align: center; margin-top: 1rem;">
-        <img src="https://tse1.mm.bing.net/th/id/OIP.hXj0g1I0Fw1n0xBDlkgFMAHaDL?rs=1&pid=ImgDetMain&o=7&rm=3" 
-             style="max-width: 100%; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);"
-             alt="Wolf of Wall Street">
-        <p style="color: #3b8ed0; font-style: italic; margin-top: 0.5rem; font-size: 0.8rem;">
-            "The show goes on!"
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Sidebar with modern branding
+# Sidebar with UBCO branding
 st.sidebar.markdown("""
 <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; border-bottom: 2px solid rgba(59, 142, 208, 0.2);">
     <h2 style="color: #3b8ed0; margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;">UBCO</h2>
@@ -340,37 +460,15 @@ else:
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Status")
+if SCRAPER_API_KEY:
+    st.sidebar.success("ScraperAPI: ACTIVE")
+else:
+    st.sidebar.warning("ScraperAPI: Not Configured")
+
 if st.session_state.openai_enabled:
     st.sidebar.success("AI Assistant: Connected")
 else:
-    st.sidebar.error("AI Assistant: Not Configured")
-
-if SCRAPER_API_KEY:
-    st.sidebar.success(f"ScraperAPI: ACTIVE")
-    st.sidebar.caption(f"Key: {SCRAPER_API_KEY[:8]}...{SCRAPER_API_KEY[-4:]}")
-else:
-    st.sidebar.error("ScraperAPI: NOT CONFIGURED")
-    with st.sidebar.expander("Setup ScraperAPI"):
-        st.markdown("""
-**Why you need it:**
-Bypasses search engine blocking when deployed
-
-**Setup (Free):**
-1. Visit [scraperapi.com](https://scraperapi.com)
-2. Sign up (1000 free requests/month)
-3. Copy your API key
-4. Add to Streamlit Cloud:
-   - Go to App Settings → Secrets
-   - Add: `SCRAPER_API_KEY = "your_key_here"`
-5. Or set locally:
-   ```bash
-   # Windows
-   set SCRAPER_API_KEY=your_key_here
-   
-   # Linux/Mac
-   export SCRAPER_API_KEY=your_key_here
-   ```
-        """)
+    st.sidebar.info("AI Assistant: Optional")
 
 # Get database statistics
 db_stats = db.get_statistics()

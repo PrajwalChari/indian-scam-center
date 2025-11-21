@@ -1,7 +1,22 @@
-streamlit>=1.28.0
-requests>=2.31.0
-beautifulsoup4>=4.12.0
-dnspython>=2.4.0
-email-validator>=2.0.0
-openai>=1.0.0
-urllib3>=2.0.0
+###############################
+# Minimal Requirements
+# Core runtime dependencies for web_app.py + EmailSearcher
+# Install with: pip install -r requirements.txt
+###############################
+
+# --- Core ---
+streamlit==1.28.2
+requests==2.31.0
+beautifulsoup4==4.12.2
+dnspython==2.4.2
+email-validator==2.1.0.post1
+
+# --- Optional Features ---
+# AI email drafting (remove if unused)
+openai==1.12.0
+
+# --- Indirect/Standard ---
+# urllib3 pulled in by requests; no need to pin explicitly
+# sqlite3, re, time, logging are from Python stdlib
+
+# To fully slim build WITHOUT AI remove the openai line above.
