@@ -459,8 +459,8 @@ if st.session_state.page_switch:
 else:
     page = st.sidebar.radio(
         "Navigation",
-        ["Dashboard", "Email Scrapper", "Cash Sponsorships", 
-         "Vendor/Part Search", "Email Center", "Templates Entry", "Company Database", "Export Tools"],
+        ["Dashboard", "Email Search", "Real Sponsors", 
+         "Vendor Search", "Email Center", "Email Templates", "Company Database", "Export Tools"],
         label_visibility="collapsed"
     )
 
